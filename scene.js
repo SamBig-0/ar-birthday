@@ -1034,13 +1034,13 @@ function createCandle(x, y, z, color) {
 // CARTAS DE AMOR (al costado de la torta)
 // =====================================================================
 const CARD_MESSAGES = [
-  { title: 'Para Yoselyn', text: 'No necesito un día especial para amarte, pero hoy quiero recordarte que eres lo mejor que me ha pasado.', sign: 'Con todo mi corazón' },
-  { title: 'Para Yoselyn', text: 'Hay cumpleaños que pasan y cumpleaños que se quedan. Que este se quede grabado en tu memoria.', sign: 'Yo, el de la sorpresa' },
-  { title: 'Para Yoselyn', text: 'Desde que llegaste, cada día tiene un motivo para sonreír y cada noche un sueño que cumplir contigo.', sign: 'El que no deja de sonreír' },
-  { title: 'Para Yoselyn', text: 'Si tuviera que volver a elegir, te elegiría mil veces más, en cada vida y en cada historia.', sign: 'El que te elige todos los días' },
-  { title: 'Para Yoselyn', text: 'Te amo más hoy que ayer, y mañana te amaré aún más. Es la única fórmula que nunca me falla.', sign: 'Tu fórmula favorita 😌' },
-  { title: 'Para Yoselyn', text: 'No sé hacia dónde va la vida, pero mientras sea contigo, quiero seguir el camino.', sign: 'El que camina a tu lado' },
-  { title: 'Para Yoselyn', text: 'Hoy no solo te deseo el mejor cumpleaños: te deseo el mejor año de tu vida, y pienso estar en cada parte buena.', sign: 'El que cumple promesas' },
+  { title: 'Para Yoselyn', text: 'Hoy el mundo se pone a tu disposición: que este nuevo año venga cargado de alegría, salud y sueños cumplidos.', sign: 'Con todo mi cariño' },
+  { title: 'Para Yoselyn', text: 'Hay cumpleaños que pasan y cumpleaños que se quedan. Que este se quede grabado en tu memoria para siempre.', sign: 'Para que lo recuerdes' },
+  { title: 'Para Yoselyn', text: 'Desde que te conozco tengo claro que eres de esas personas que iluminan todo lo que está a su alrededor.', sign: 'Con admiración' },
+  { title: 'Para Yoselyn', text: 'Que la vida te sonría tanto como tú sonríes a los demás. Te lo mereces, y con creces.', sign: 'Un abrazo gigante' },
+  { title: 'Para Yoselyn', text: 'Cada año que cumples es una excusa más para celebrar lo increíble que eres: brillante, única e inolvidable.', sign: 'Tu fan de siempre' },
+  { title: 'Para Yoselyn', text: 'Que este año te regale nuevas aventuras, buenas risas y gente que te quiera como mereces.', sign: 'Buena vibra para ti' },
+  { title: 'Para Yoselyn', text: 'Hoy no solo te deseo el mejor cumpleaños: te deseo un año lleno de cosas buenas, que nadie lo merece más.', sign: 'El que armó todo esto' },
 ];
 const CARD_COLORS = ['#d94f70', '#8a5cf6', '#e0a52e', '#0fa3a3', '#e8546f', '#5c8df6', '#b05cd9'];
 
