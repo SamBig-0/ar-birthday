@@ -1862,7 +1862,7 @@ function tryTapCake(ndc) {
   if (!hits.length) return;
   if (camera.position.distanceTo(hits[0].point) < 5) {
     if (candleBlown) { playFxApplause(); return; }
-    if (blowSession) doBlow();
+    if (blowSession) requestMic();
     else startBlowSession();
   }
 }
@@ -1967,7 +1967,7 @@ function triggerSurprise() {
 // =====================================================================
 function startBlowSession() {
   if (candleBlown || blowSession) return;
-  blowSession = { energy: 0, analyser: null, data: null, mic: null, safeTimer: null };
+  blowSession = { energy: 0, analyser: null, data: null, mic: null };
 
   const wishEl = document.getElementById('wishOverlay');
   wishEl.textContent = '✨ Cierra los ojos y pide un deseo…';
@@ -1975,14 +1975,18 @@ function startBlowSession() {
 
   setTimeout(() => {
     if (!blowSession) return;
-    wishEl.textContent = '💨 ¡SOPLA fuerte! (o toca el pastel otra vez)';
+    wishEl.textContent = '💨 ¡SOPLA fuerte al micrófono para apagar las velas!';
     requestMic();
-    blowSession.safeTimer = setTimeout(() => doBlow(), 9000);
   }, 1600);
 }
 
 function requestMic() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  if (!blowSession) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    document.getElementById('wishOverlay').textContent =
+      '🔇 Tu navegador no permite el micrófono. Usa Chrome o Safari y toca el pastel para reintentar.';
+    return;
+  }
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     if (!blowSession) { stream.getTracks().forEach(t => t.stop()); return; }
     const actx = getAudioCtx();
@@ -1994,7 +1998,10 @@ function requestMic() {
     blowSession.data = new Uint8Array(analyser.fftSize);
     blowSession.mic = stream;
     document.getElementById('windMeter').classList.remove('hidden');
-  }).catch(() => { /* sin micrófono: se sopla tocando */ });
+  }).catch(() => {
+    document.getElementById('wishOverlay').textContent =
+      '🔇 Se necesita el micrófono para apagar las velas. Habilítalo en el navegador y toca el pastel para reintentar.';
+  });
 }
 
 function updateBlow(dt) {
@@ -2018,7 +2025,6 @@ function doBlow() {
   if (candleBlown) return;
   if (blowSession) {
     if (blowSession.mic) blowSession.mic.getTracks().forEach(t => t.stop());
-    clearTimeout(blowSession.safeTimer);
     blowSession = null;
     document.getElementById('windMeter').classList.add('hidden');
   }
