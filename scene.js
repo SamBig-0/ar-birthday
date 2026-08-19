@@ -1053,7 +1053,6 @@ function heartShape(s) {
   sh.bezierCurveTo(1.2 * s, 1.54 * s, 1.6 * s, 1.1 * s, 1.6 * s, 0.7 * s);
   sh.bezierCurveTo(1.6 * s, 0.7 * s, 1.6 * s, 0, 1.0 * s, 0);
   sh.bezierCurveTo(0.7 * s, 0, 0.5 * s, 0.5 * s, 0.5 * s, 0.5 * s);
-  sh.translate(-0.5 * s, -0.95 * s);
   return sh;
 }
 function starShape(outer, inner) {
@@ -1068,6 +1067,7 @@ function starShape(outer, inner) {
   return sh;
 }
 const heartGeo = new THREE.ShapeGeometry(heartShape(0.11), 10);
+heartGeo.translate(-0.5 * 0.11, -0.95 * 0.11, 0); // centrar el corazón
 const starGeo = new THREE.ShapeGeometry(starShape(0.11, 0.05), 10);
 const BOX_FILLER_COLORS = [0xff5d8f, 0xff8fab, 0xffd54f, 0x9b5de5, 0x5c8df6, 0x00f5d4];
 
