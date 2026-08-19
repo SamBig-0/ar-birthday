@@ -239,20 +239,20 @@ async function startEntrySequence() {
   entryTime = 0;
   entered = true;
 
-  // Hide overlay with dramatic fade
-  entryOverlay.style.transition = 'opacity 1s ease';
+  // Hide overlay rápido para ver la puerta
+  entryOverlay.style.transition = 'opacity 0.35s ease';
   entryOverlay.style.opacity = '0';
-  setTimeout(() => entryOverlay.classList.add('hidden'), 1000);
+  setTimeout(() => entryOverlay.classList.add('hidden'), 400);
 
   // Música apenas se abre la puerta
   playYouTubeMusic();
 
-  // La puerta se abre empujándola; luego la persona entra caminando
+  // La puerta se abre (efecto de empujar); luego se entra caminando
   doorTargetAngle = -Math.PI * 0.5;
   surpriseTriggered = false;
   entryWalk = false;
   entryDist = 0;
-  setTimeout(() => { entryWalk = true; }, 500);
+  setTimeout(() => { entryWalk = true; }, 700);
 
   // Done
   setTimeout(() => {
@@ -1297,15 +1297,18 @@ function updateEntryWalk(dt) {
   camera.position.z = 3.6 - entryDist;
   camera.position.y = CAM_Y + Math.sin(bobPhase) * 0.035;
 
-  // CRUZA EL UMBRAL → ¡SORPRESA!
+  // Giro progresivo: entra mirando hacia el interior del cuarto
+  const prog = Math.min(1, entryDist / 2.5);
+  const ease = prog * prog * (3 - 2 * prog);
+  camera.rotation.y = Math.PI * (1 - ease);
+
+  // CRUZA EL UMBRAL → ¡SORPRESA! (de frente)
   if (!surpriseTriggered && camera.position.z <= 2.62) triggerSurprise();
 
-  // Llegó hasta el fondo de la entrada: gira hacia la fiesta
-  if (camera.position.z <= 1.1) {
+  // Llegó al interior: control libre
+  if (camera.position.z <= 1.15) {
     entryWalk = false;
     cameraActive = true;
-    autoTurn = true;
-    yawTarget = 0;
     ui.classList.remove('hidden');
   }
 }
@@ -1314,10 +1317,12 @@ function triggerSurprise() {
   surpriseTriggered = true;
   entryPhase = 'lights';
   lightsFadingIn = true;
-  lightsProgress = 0.15;
+  lightsProgress = 0.2;
   surpriseFlash = true;
-  setTimeout(() => { entryPhase = 'bomb'; explodeConfettiBomb(); }, 300);
-  setTimeout(() => { surpriseFlash = false; }, 700);
+  partyLightsOn = true;
+  partyLights.forEach(l => { l.light.visible = true; l.glow.visible = true; });
+  setTimeout(() => { entryPhase = 'bomb'; explodeConfettiBomb(); }, 200);
+  setTimeout(() => { surpriseFlash = false; }, 800);
 }
 
 // =====================================================================
