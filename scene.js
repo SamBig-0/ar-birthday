@@ -1458,27 +1458,29 @@ function createBanner() {
   }
 
   // === LÍNEA 3: YOSELYN 🤍 (rosa-dorado metálico) ===
-  const line3 = 'YOSELYN🤍';
+  const line3Chars = [...'YOSELYN🤍'];
   const grad3 = ctx.createLinearGradient(0, 660, 0, 930);
   grad3.addColorStop(0, '#ffe4ef'); grad3.addColorStop(0.4, '#ff8ab5'); grad3.addColorStop(0.75, '#f45d9b'); grad3.addColorStop(1, '#fbbf24');
-  for (let i = 0; i < line3.length - 1; i++) {
-    const x = 1024 - (line3.length / 2 - i - 0.5) * 218;
-    ctx.font = '900 330px Georgia, "Times New Roman", serif';
-    ctx.shadowColor = 'rgba(244, 93, 155, 0.85)'; ctx.shadowBlur = 36;
-    ctx.strokeStyle = 'rgba(70, 10, 45, 0.95)'; ctx.lineWidth = 18; ctx.strokeText(line3[i], x, 810);
-    ctx.fillStyle = grad3; ctx.fillText(line3[i], x, 810);
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'; ctx.lineWidth = 4; ctx.strokeText(line3[i], x, 801);
+  for (let i = 0; i < line3Chars.length; i++) {
+    const x = 1024 - (line3Chars.length / 2 - i - 0.5) * 218;
+    if (line3Chars[i] === '🤍') {
+      // Corazón blanco grande, justo al lado de la N
+      ctx.save();
+      ctx.translate(x, 810);
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.9)'; ctx.shadowBlur = 30;
+      ctx.font = '300px serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('🤍', 0, 0);
+      ctx.restore();
+    } else {
+      ctx.font = '900 330px Georgia, "Times New Roman", serif';
+      ctx.shadowColor = 'rgba(244, 93, 155, 0.85)'; ctx.shadowBlur = 36;
+      ctx.strokeStyle = 'rgba(70, 10, 45, 0.95)'; ctx.lineWidth = 18; ctx.strokeText(line3Chars[i], x, 810);
+      ctx.fillStyle = grad3; ctx.fillText(line3Chars[i], x, 810);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'; ctx.lineWidth = 4; ctx.strokeText(line3Chars[i], x, 801);
+    }
   }
-  // Corazón blanco grande al final
-  ctx.textAlign = 'center';
-  ctx.save();
-  ctx.translate(1024 + (line3.length / 2 - 0.5) * 218, 810);
-  ctx.shadowColor = 'rgba(255, 255, 255, 0.9)'; ctx.shadowBlur = 30;
-  ctx.font = '300px serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText('🤍', 0, 0);
-  ctx.restore();
 
   // Estrellas doradas superiores
   ctx.fillStyle = '#ffd54f';
