@@ -1324,33 +1324,148 @@ function createBanner() {
     scene.add(flag);
   }
 
-  // "FELIZ CUMPLEAÑOS YOSELYN" text on back wall using canvas texture
+  // "FELIZ CUMPLEAÑOS SHANDERY YOSELYN 🤍" — letrero decorado en la pared trasera
   const textCanvas = document.createElement('canvas');
-  textCanvas.width = 1024; textCanvas.height = 256;
+  textCanvas.width = 2048; textCanvas.height = 1024;
   const ctx = textCanvas.getContext('2d');
-  ctx.clearRect(0, 0, 1024, 256);
-  // Gradient text
-  const grad = ctx.createLinearGradient(0, 0, 1024, 0);
-  grad.addColorStop(0, '#ff6b9d');
-  grad.addColorStop(0.5, '#fbbf24');
-  grad.addColorStop(1, '#a855f7');
-  ctx.fillStyle = grad;
-  ctx.font = 'bold 72px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('FELIZ CUMPLEAÑOS', 512, 80);
-  ctx.font = 'bold 96px Arial, sans-serif';
-  ctx.fillText('YOSELYN', 512, 180);
-  // Shadow
-  ctx.shadowColor = 'rgba(168, 85, 247, 0.5)';
-  ctx.shadowBlur = 20;
-  ctx.fillText('YOSELYN', 512, 180);
+  ctx.clearRect(0, 0, 2048, 1024);
 
+  // === Figuras decorativas ===
+  function starPath(c, r1, r2) {
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? r1 : r2;
+      const a = (i * Math.PI) / 5 - Math.PI / 2;
+      const px = Math.cos(a) * r, py = Math.sin(a) * r;
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath();
+  }
+  function sparklePath(c, s) {
+    c.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const r = i % 2 === 0 ? s : s * 0.32;
+      const a = (i * Math.PI) / 4;
+      const px = Math.cos(a) * r, py = Math.sin(a) * r;
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath();
+  }
+  function heartPath(c, s) {
+    c.beginPath();
+    c.moveTo(0, s * 0.3);
+    c.bezierCurveTo(0, s * 0.3, -s * 0.55, -s * 0.25, 0, -s * 0.5);
+    c.bezierCurveTo(s * 0.55, -s * 0.25, 0, s * 0.3, 0, s * 0.3);
+    c.closePath();
+  }
+
+  // Placa satinada con marco dorado
+  ctx.fillStyle = 'rgba(24, 16, 44, 0.62)';
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(110, 70, 1828, 884, 40); ctx.fill(); }
+  else { ctx.fillRect(110, 70, 1828, 884); }
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.95)'; ctx.lineWidth = 7;
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(140, 100, 1768, 824, 28); ctx.stroke(); }
+  else { ctx.strokeRect(140, 100, 1768, 824); }
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 3;
+  ctx.strokeRect(170, 130, 1708, 764);
+
+  // Corazones de esquina
+  ctx.fillStyle = '#ff6b9d';
+  ctx.save(); ctx.translate(95, 95); ctx.rotate(-0.6); heartPath(ctx, 60); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(1940, 120); ctx.rotate(0.7); heartPath(ctx, 60); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(130, 900); ctx.rotate(-0.7); heartPath(ctx, 60); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(1945, 900); ctx.rotate(0.7); heartPath(ctx, 60); ctx.fill(); ctx.restore();
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  // === LÍNEA 1: FELIZ CUMPLEAÑOS (dorado con brillo) ===
+  const line1 = 'FELIZ CUMPLEAÑOS';
+  const grad1 = ctx.createLinearGradient(0, 120, 0, 260);
+  grad1.addColorStop(0, '#ffe9a8'); grad1.addColorStop(0.45, '#fbbf24'); grad1.addColorStop(1, '#d97706');
+  for (let i = 0; i < line1.length; i++) {
+    const x = 1024 - (line1.length / 2 - i - 0.5) * 112;
+    ctx.font = '900 190px Georgia, "Times New Roman", serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.8)'; ctx.shadowBlur = 28;
+    ctx.strokeStyle = 'rgba(60, 25, 10, 0.95)'; ctx.lineWidth = 16; ctx.strokeText(line1[i], x, 190);
+    ctx.fillStyle = grad1; ctx.fillText(line1[i], x, 190);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'; ctx.lineWidth = 3; ctx.strokeText(line1[i], x, 186);
+  }
+
+  // === LÍNEA 2: SHANDERY (letra por letra, arcoíris de neón) ===
+  const line2 = 'SHANDERY';
+  for (let i = 0; i < line2.length; i++) {
+    const x = 1024 - (line2.length / 2 - i - 0.5) * 235;
+    const hue = (i / line2.length) * 320;
+    const grad = ctx.createLinearGradient(x - 80, 0, x + 80, 0);
+    grad.addColorStop(0, `hsl(${hue}, 90%, 72%)`);
+    grad.addColorStop(1, `hsl(${hue + 45}, 90%, 55%)`);
+    ctx.font = '900 330px Georgia, "Times New Roman", serif';
+    ctx.shadowColor = `hsl(${hue}, 95%, 62%)`; ctx.shadowBlur = 34;
+    ctx.strokeStyle = 'rgba(30, 8, 45, 0.95)'; ctx.lineWidth = 18; ctx.strokeText(line2[i], x, 480);
+    ctx.fillStyle = grad; ctx.fillText(line2[i], x, 480);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)'; ctx.lineWidth = 4; ctx.strokeText(line2[i], x, 472);
+  }
+
+  // === LÍNEA 3: YOSELYN 🤍 (rosa-dorado metálico) ===
+  const line3 = 'YOSELYN🤍';
+  const grad3 = ctx.createLinearGradient(0, 660, 0, 930);
+  grad3.addColorStop(0, '#ffe4ef'); grad3.addColorStop(0.4, '#ff8ab5'); grad3.addColorStop(0.75, '#f45d9b'); grad3.addColorStop(1, '#fbbf24');
+  for (let i = 0; i < line3.length - 1; i++) {
+    const x = 1024 - (line3.length / 2 - i - 0.5) * 218;
+    ctx.font = '900 330px Georgia, "Times New Roman", serif';
+    ctx.shadowColor = 'rgba(244, 93, 155, 0.85)'; ctx.shadowBlur = 36;
+    ctx.strokeStyle = 'rgba(70, 10, 45, 0.95)'; ctx.lineWidth = 18; ctx.strokeText(line3[i], x, 810);
+    ctx.fillStyle = grad3; ctx.fillText(line3[i], x, 810);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'; ctx.lineWidth = 4; ctx.strokeText(line3[i], x, 801);
+  }
+  // Corazón blanco grande al final
+  ctx.textAlign = 'center';
+  ctx.save();
+  ctx.translate(1024 + (line3.length / 2 - 0.5) * 218, 810);
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.9)'; ctx.shadowBlur = 30;
+  ctx.font = '300px serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('🤍', 0, 0);
+  ctx.restore();
+
+  // Estrellas doradas superiores
+  ctx.fillStyle = '#ffd54f';
+  starPath(ctx, 46, 18); ctx.save(); ctx.translate(380, 180); ctx.rotate(-0.3); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#ff9ecb';
+  starPath(ctx, 40, 15); ctx.save(); ctx.translate(260, 300); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#ffd54f';
+  starPath(ctx, 52, 20); ctx.save(); ctx.translate(1690, 165); ctx.rotate(0.4); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#a78bfa';
+  starPath(ctx, 36, 13); ctx.save(); ctx.translate(1810, 320); ctx.fill(); ctx.restore();
+
+  // Chispas dispersas
+  const sparkles = [[200, 560], [340, 700], [640, 250], [980, 140], [1460, 240], [1720, 620], [1880, 760], [120, 760], [1930, 500]];
+  sparkles.forEach(([sx, sy], i) => {
+    ctx.fillStyle = ['#ffd54f', '#ffffff', '#ff9ecb', '#7dd3fc'][i % 4];
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(i * 0.8);
+    sparklePath(ctx, 26); ctx.fill(); ctx.restore();
+  });
+
+  // Confeti decorativo (puntos)
+  for (let i = 0; i < 70; i++) {
+    const px = 190 + Math.random() * 1670;
+    const py = 130 + Math.random() * 764;
+    ctx.fillStyle = ['#ff6b9d', '#fbbf24', '#48bfe3', '#c77dff', '#ffd60a', '#72efdd'][Math.floor(Math.random() * 6)];
+    ctx.beginPath(); ctx.arc(px, py, 5 + Math.random() * 7, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Textura y mesh
   const textTex = new THREE.CanvasTexture(textCanvas);
-  const textGeo = new THREE.PlaneGeometry(3.5, 0.9);
+  textTex.colorSpace = THREE.SRGBColorSpace;
+  textTex.anisotropy = 8;
+  const textGeo = new THREE.PlaneGeometry(5.3, 2.42);
   const textMat = new THREE.MeshBasicMaterial({ map: textTex, transparent: true, side: THREE.DoubleSide });
   const textMesh = new THREE.Mesh(textGeo, textMat);
-  textMesh.position.set(0, ROOM.h * 0.65, -ROOM.d / 2 + 0.07);
+  textMesh.position.set(0, 1.9, -ROOM.d / 2 + 0.07);
   scene.add(textMesh);
 }
 
