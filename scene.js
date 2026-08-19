@@ -76,6 +76,10 @@ const loading = document.getElementById('loading');
 const progressFill = document.getElementById('progressFill');
 const loadingText = document.getElementById('loadingText');
 const ui = document.getElementById('ui');
+const readerOverlay = document.getElementById('readerOverlay');
+const readerTitle = document.getElementById('readerTitle');
+const readerText = document.getElementById('readerText');
+const readerSign = document.getElementById('readerSign');
 
 // =====================================================================
 // ERRORES VISIBLES: si algo falla en runtime, se ve en pantalla
@@ -1105,6 +1109,7 @@ function createCards() {
       standPos: card.position.clone(),
       standRot: rotY,
       front, paper,
+      msgIndex: i,
       state: 'idle', flyT: 0,
       target: new THREE.Vector3(),
       rotTarget: 0,
@@ -1118,6 +1123,18 @@ function createCards() {
 function setHintText(t) {
   const chip = document.getElementById('hintChip');
   if (chip) chip.textContent = t;
+}
+
+function showReader(i) {
+  const m = CARD_MESSAGES[i];
+  if (readerTitle) readerTitle.textContent = m.title;
+  if (readerText) readerText.textContent = m.text;
+  if (readerSign) readerSign.textContent = '— ' + m.sign;
+  if (readerOverlay) readerOverlay.classList.remove('hidden');
+}
+
+function hideReader() {
+  if (readerOverlay) readerOverlay.classList.add('hidden');
 }
 
 function openCard(card) {
@@ -1145,6 +1162,7 @@ function closeCard() {
   cameraActive = savedCameraActive;
   card.userData.flyT = 0;
   card.userData.state = 'return';
+  hideReader();
   setHintText(savedHint || '🎂 Toca el pastel y pide un deseo');
 }
 
@@ -1163,6 +1181,7 @@ function updateCards(dt) {
       if (d.flyT >= 1) {
         d.state = 'open';
         d.paper.visible = true;
+        showReader(d.msgIndex);
       }
     } else if (d.state === 'open') {
       const fx = -Math.sin(camera.rotation.y), fz = -Math.cos(camera.rotation.y);
@@ -1449,6 +1468,9 @@ function setupControls() {
   });
   btnConfetti.addEventListener('click', () => { launchConfetti(150); btnConfetti.classList.add('active'); setTimeout(() => btnConfetti.classList.remove('active'), 500); });
   btnFullscreen.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
+
+  // El lector de cartas se cierra con cualquier toque
+  if (readerOverlay) readerOverlay.addEventListener('click', () => closeCard());
 
   window.addEventListener('keydown', e => keys.add(e.code));
   window.addEventListener('keyup', e => keys.delete(e.code));

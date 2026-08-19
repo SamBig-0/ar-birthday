@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>✨</title>
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
   <!-- Loading -->
@@ -43,6 +43,17 @@
   <!-- Hint de acción -->
   <div class="hint-chip" id="hintChip">🚪 Toca la puerta para entrar</div>
 
+  <!-- Lector de cartas (siempre legible) -->
+  <div id="readerOverlay" class="reader-overlay hidden">
+    <div class="reader-card">
+      <div class="reader-top">💖</div>
+      <div class="reader-title" id="readerTitle">Para Yoselyn</div>
+      <div class="reader-text" id="readerText"></div>
+      <div class="reader-sign" id="readerSign"></div>
+      <div class="reader-close">👆 Toca para cerrar</div>
+    </div>
+  </div>
+
   <!-- UI -->
   <div id="ui" class="hidden">
     <div class="top-bar">
@@ -68,6 +79,6 @@
     }
   }
   </script>
-  <script type="module" src="scene.js?v=13"></script>
+  <script type="module" src="scene.js?v=14"></script>
 </body>
 </html>
