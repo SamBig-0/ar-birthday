@@ -1094,7 +1094,7 @@ function createCards() {
     front.userData.cardObj = card;
     const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4),
       new THREE.MeshBasicMaterial({ map: makePaperTexture(msg), side: THREE.DoubleSide }));
-    paper.position.z = 0.001; paper.visible = false;
+    paper.position.z = 0.03; paper.visible = false; // al frente del sobre, sin taparse
     card.add(back); card.add(front); card.add(paper);
 
     const dx = [-0.19, -0.065, 0.065, 0.19][i];
