@@ -1019,10 +1019,10 @@ function createCandle(x, y, z, color) {
 // CARTAS DE AMOR (al costado de la torta)
 // =====================================================================
 const CARD_MESSAGES = [
-  { title: 'Para Yoselyn', text: 'Que este nuevo año te llene de amor, sueños cumplidos y mucha felicidad.', sign: 'Con cariño, tu familia' },
-  { title: 'Para Yoselyn', text: 'Cada vela que soplas enciende un deseo. Que hoy todos se hagan realidad.', sign: 'Te deseamos lo mejor' },
-  { title: 'Para Yoselyn', text: 'Gracias por ser luz en nuestras vidas. Hoy el mundo celebra que existes.', sign: 'Te queremos muchísimo' },
-  { title: 'Para Yoselyn', text: 'Que nunca te falten motivos para sonreír ni personas que te amen así de fácil.', sign: 'Eres increíble' },
+  { title: 'Para Yoselyn', text: 'Yoselyn, hoy el día es tuyo: que la vida te devuelva en abrazos todo lo bueno que le das a los demás.', sign: 'Tu familia 💛' },
+  { title: 'Para Yoselyn', text: 'Cada año me toca recordarte que eres mi persona favorita del mundo. Y mira, sigo teniendo razón.', sign: 'Tu fan #1 🥳' },
+  { title: 'Para Yoselyn', text: 'Gracias por tus abrazos y tu risa que contagia. Con nadie me río tanto como contigo.', sign: 'La que te molesta 😜' },
+  { title: 'Para Yoselyn', text: 'Eres de las pocas que me hacen olvidar que existen los lunes. Que este año te sonría el doble. Feliz cumple.', sign: 'Tu amiga de siempre 💫' },
 ];
 const CARD_COLORS = ['#d94f70', '#8a5cf6', '#e0a52e', '#0fa3a3'];
 
@@ -1062,9 +1062,9 @@ function makePaperTexture(msg) {
   ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
   ctx.fillText(msg.title, 384, 252);
   ctx.font = '54px Georgia, serif'; ctx.fillStyle = '#3a2a33';
-  wrapText(ctx, msg.text, 384, 436, 540, 80);
+  wrapText(ctx, msg.text, 384, 400, 500, 76);
   ctx.font = 'italic 50px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
-  ctx.fillText('— ' + msg.sign, 384, 830);
+  ctx.fillText('— ' + msg.sign, 384, 868);
   return new THREE.CanvasTexture(c);
 }
 
