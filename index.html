@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🎂 Cuarto de Cumpleaños — Full Realismo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Loading -->
+  <div id="loading">
+    <div class="loader">
+      <div class="balloon-anim">🎈</div>
+      <h2>Preparando la fiesta...</h2>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <p id="loadingText">Cargando...</p>
+    </div>
+  </div>
+
+  <!-- Entry overlay -->
+  <div id="entryOverlay" class="hidden">
+    <div class="entry-content">
+      <div class="entry-confetti">🎊🎈🎉🎁🎂✨</div>
+      <div class="entry-name">¡Feliz Cumpleaños!</div>
+      <div class="entry-honoree">Yoselyn</div>
+      <button class="btn-pulsar" id="btnPulsar">🎉 PULSAR PARA ENTRAR 🎉</button>
+      <div class="entry-subtext">🎵 🎈 🎂 🎉</div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <canvas id="scene"></canvas>
+
+  <!-- YouTube Music (hidden iframe) -->
+  <div id="ytContainer" class="yt-hidden">
+    <iframe id="ytPlayer"
+      src="https://www.youtube.com/embed/FE_KnGLsX5c?autoplay=0&enablejsapi=1&controls=0&disablekb=1&modestbranding=1&rel=0"
+      allow="autoplay"
+      allowfullscreen
+    ></iframe>
+  </div>
+
+  <!-- UI -->
+  <div id="ui" class="hidden">
+    <div class="top-bar">
+      <button class="icon-btn" id="btnInfo" title="Info">ℹ️</button>
+      <div class="title">🎂 Mi Fiesta</div>
+      <button class="icon-btn" id="btnFullscreen" title="Fullscreen">⛶</button>
+    </div>
+
+    <div class="ar-controls">
+      <button class="btn-ar" id="btnAR">
+        <span class="ar-icon">📱</span>
+        <span id="arLabel">Ver en Realidad Aumentada</span>
+      </button>
+      <p class="ar-hint" id="arHint">Requiere celular con Chrome Android</p>
+    </div>
+
+    <div class="bottom-bar">
+      <button class="ctrl-btn active" id="btnBalloons" title="Globos">🎈</button>
+      <button class="ctrl-btn active" id="btnCake" title="Pastel">🎂</button>
+      <button class="ctrl-btn active" id="btnLights" title="Luces">✨</button>
+      <button class="ctrl-btn" id="btnConfetti" title="Confeti">🎉</button>
+      <button class="ctrl-btn" id="btnMusic" title="Música">🎵</button>
+    </div>
+
+    <div class="info-panel hidden" id="infoPanel">
+      <h3>🎂 Cuarto de Cumpleaños AR</h3>
+      <p>Cuarto 3D decorado con realismo máximo.</p>
+      <ul>
+        <li>🚪 <b>Puerta:</b> Se abre al entrar</li>
+        <li>🎈 <b>Globos:</b> On/Off</li>
+        <li>🎂 <b>Pastel:</b> On/Off</li>
+        <li>✨ <b>Luces:</b> On/Off</li>
+        <li>🎉 <b>Confeti:</b> Lanza confeti</li>
+        <li>🎵 <b>Música:</b> On/Off</li>
+      </ul>
+      <button class="btn-close" id="btnCloseInfo">Entendido</button>
+    </div>
+  </div>
+
+  <!-- Three.js r160 + addons -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="scene.js"></script>
+</body>
+</html>
