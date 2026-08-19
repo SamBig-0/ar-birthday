@@ -1023,12 +1023,15 @@ function createCandle(x, y, z, color) {
 // CARTAS DE AMOR (al costado de la torta)
 // =====================================================================
 const CARD_MESSAGES = [
-  { title: 'Para Yoselyn', text: 'Yoselyn, hoy el día es tuyo: que la vida te devuelva en abrazos todo lo bueno que le das a los demás.', sign: 'Tu familia 💛' },
-  { title: 'Para Yoselyn', text: 'Cada año me toca recordarte que eres mi persona favorita del mundo. Y mira, sigo teniendo razón.', sign: 'Tu fan #1 🥳' },
-  { title: 'Para Yoselyn', text: 'Gracias por tus abrazos y tu risa que contagia. Con nadie me río tanto como contigo.', sign: 'La que te molesta 😜' },
-  { title: 'Para Yoselyn', text: 'Eres de las pocas que me hacen olvidar que existen los lunes. Que este año te sonría el doble. Feliz cumple.', sign: 'Tu amiga de siempre 💫' },
+  { title: 'Para Yoselyn', text: 'Yoselyn, esto lo armé con el corazón en la mano y las manos temblando de nervios. Hoy te toca ser feliz, no me lo discutas.', sign: 'Yo, el de la sorpresa 🤍' },
+  { title: 'Para Yoselyn', text: 'Te quiero más de lo que mis silencios dicen. Y tranquila, que mis silencios duran poco.', sign: 'El que te escucha (siempre) 😌' },
+  { title: 'Para Yoselyn', text: 'Si pudiera te regalaría el sol, pero solo pude esta fiestita y mis ganas de verte sonreír. ¿Te sirve?', sign: 'El que te quiere ver feliz' },
+  { title: 'Para Yoselyn', text: 'Gracias por existir y por hacerme creer que la vida sí premia. Hoy es tu día, así que nada de hablar de tu edad.', sign: 'El que arma todo esto' },
+  { title: 'Para Yoselyn', text: 'Te vi reír y entendí por qué hago todo esto: tu sonrisa es mi obra favorita.', sign: 'El que te mira cuando no miras' },
+  { title: 'Para Yoselyn', text: 'Esta carta vale menos que el abrazo que te daré al final. Tómalo primero y llévalo siempre contigo.', sign: 'Tu abrazo favorito' },
+  { title: 'Para Yoselyn', text: 'Que este año te encuentre tan brillante como siempre y un poquito más consentida, que alguien se está ocupando de eso.', sign: 'El que te consiente' },
 ];
-const CARD_COLORS = ['#d94f70', '#8a5cf6', '#e0a52e', '#0fa3a3'];
+const CARD_COLORS = ['#d94f70', '#8a5cf6', '#e0a52e', '#0fa3a3', '#e8546f', '#5c8df6', '#b05cd9'];
 
 function wrapText(ctx, text, x, y, maxW, lh) {
   const words = text.split(' ');
@@ -1075,13 +1078,13 @@ function makePaperTexture(msg) {
 function createCards() {
   const cardsGroup = new THREE.Group();
   const tableMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.45, metalness: 0.05 });
-  const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.03, 48), tableMat);
+  const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.03, 48), tableMat);
   tableTop.position.set(0, 0.85, 0); tableTop.castShadow = true; tableTop.receiveShadow = true;
   cardsGroup.add(tableTop);
-  const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.85, 12), tableMat);
+  const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.85, 12), tableMat);
   tableLeg.position.set(0, 0.425, 0); tableLeg.castShadow = true;
   cardsGroup.add(tableLeg);
-  cardsGroup.position.set(1.35, 0, -1.55);
+  cardsGroup.position.set(1.45, 0, -1.55);
   scene.add(cardsGroup);
 
   CARD_MESSAGES.forEach((msg, i) => {
@@ -1101,9 +1104,12 @@ function createCards() {
     paper.position.z = 0.03; paper.visible = false; // al frente del sobre, sin taparse
     card.add(back); card.add(front); card.add(paper);
 
-    const dx = [-0.19, -0.065, 0.065, 0.19][i];
-    const rotY = -Math.PI / 2 + [0.5, 0.17, -0.17, -0.5][i];
-    card.position.set(dx, 1.0825, 0);
+    // Abanico en arco por el lado visible de la mesa (hacia la persona)
+    const a = (i - 3) * 0.3;
+    const dx = -Math.cos(a) * 0.42;
+    const dz = Math.sin(a) * 0.42;
+    const rotY = -Math.PI / 2 + a * 0.8;
+    card.position.set(dx, 1.0825, dz);
     card.rotation.y = rotY;
     card.userData = {
       standPos: card.position.clone(),
