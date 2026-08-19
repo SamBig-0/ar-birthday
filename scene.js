@@ -46,7 +46,7 @@ let musicPlaying = false, audioCtx, entered = false;
 
 // Door
 let doorLeft, doorRight;
-let doorFrameMeshes = [];
+let doorHitMeshes = [];
 let doorOpen = false;
 let doorAngle = 0;
 let doorTargetAngle = 0;
@@ -536,7 +536,16 @@ function createDoor() {
   fR.position.set(doorW + 0.05, doorY, fz); fR.castShadow = true; doorGroup.add(fR);
   const fT = new THREE.Mesh(new THREE.BoxGeometry(doorW * 2 + 0.2, 0.1, 0.14), frameMat);
   fT.position.set(0, doorH + 0.1, fz); fT.castShadow = true; doorGroup.add(fT);
-  doorFrameMeshes.push(fL, fR, fT);
+  doorHitMeshes.push(fL, fR, fT);
+
+  // Caja de golpe invisible: cubre toda la puerta (incl. la grieta central)
+  const hitBox = new THREE.Mesh(
+    new THREE.PlaneGeometry(doorW * 2 + 0.14, doorH),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  hitBox.position.set(0, doorY, fz);
+  doorGroup.add(hitBox);
+  doorHitMeshes.push(hitBox);
 
   // Inner frame lip (thinner, protruding)
   const lipMat = new THREE.MeshStandardMaterial({ color: 0x4a2a10, roughness: 0.4, metalness: 0.1 });
@@ -1258,7 +1267,7 @@ function handleTap(x, y) {
 
   // ANTES de entrar: solo la puerta responde (paneles + marco)
   if (entryPhase === 'waiting') {
-    const doorHits = raycaster.intersectObjects([doorLeft, doorRight, ...doorFrameMeshes], true);
+    const doorHits = raycaster.intersectObjects([doorLeft, doorRight, ...doorHitMeshes], true);
     if (doorHits.length) startEntrySequence();
     return;
   }
@@ -1624,8 +1633,8 @@ function render() {
   if (entryWalk) updateEntryWalk(dt);
   else if (cameraActive) {
     updateCamera(dt);
-    // La persona cruza el umbral por su cuenta → ¡SORPRESA!
-    if (!surpriseTriggered && camera.position.z <= 2.62) triggerSurprise();
+    // La persona camina con teclas y cruza la puerta → ¡SORPRESA!
+    if (!surpriseTriggered && camera.position.z <= 2.0) triggerSurprise();
   }
 
   // Balloons
