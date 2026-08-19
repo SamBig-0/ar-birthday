@@ -251,25 +251,18 @@ async function startEntrySequence() {
   entryTime = 0;
   entered = true;
 
-  // La puerta se abre (efecto de empujar) con crujido
+  // La puerta se abre (efecto de empujar)
   doorTargetAngle = -Math.PI * 0.5;
   surpriseTriggered = false;
   entryWalk = false;
   entryDist = 0;
-  playDoorCreak();
 
-  // GRITOS: ¡SORPRESAAA!
-  setTimeout(playShout, 400);
-
-  // Se entra caminando
+  // TIMERS PRIMERO: la secuencia nunca puede morir por un fallo de audio
+  setTimeout(() => { try { playDoorCreak(); } catch (err) { console.warn('creak', err); } }, 0);
+  setTimeout(() => { try { playShout(); } catch (err) { console.warn('shout', err); } }, 400);
   setTimeout(() => { entryWalk = true; }, 800);
-
-  // Música principal justo después del grito
-  setTimeout(playYouTubeMusic, 1600);
-
-  setTimeout(() => {
-    entryPhase = 'done';
-  }, 5000);
+  setTimeout(() => { try { playYouTubeMusic(); } catch (err) { console.warn('music', err); } }, 1600);
+  setTimeout(() => { entryPhase = 'done'; }, 5000);
 }
 
 function initYouTubeMusic() {
@@ -1522,7 +1515,7 @@ function playWhoosh() {
     d[i] = (Math.random() * 2 - 1) * env;
   }
   const src = ctx.createBufferSource(); src.buffer = buf;
-  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q = 1.5;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.5;
   bp.frequency.setValueAtTime(350, t0);
   bp.frequency.exponentialRampToValueAtTime(1800, t0 + dur);
   const g = ctx.createGain(); g.gain.value = 0.22;
@@ -1545,7 +1538,7 @@ function playApplause() {
     for (let i = 0; i < dd.length; i++) dd[i] = (Math.random() * 2 - 1) * (1 - i / dd.length);
     const src = ctx.createBufferSource(); src.buffer = buf;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
-    bp.frequency.value = 800 + Math.random() * 1600; bp.Q = 1.1;
+    bp.frequency.value = 800 + Math.random() * 1600; bp.Q.value = 1.1;
     const g = ctx.createGain();
     g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
@@ -1575,7 +1568,7 @@ function playDoorCreak() {
     d[i] = (Math.random() * 2 - 1) * env;
   }
   const src = ctx.createBufferSource(); src.buffer = buf;
-  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q = 12;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 12;
   bp.frequency.setValueAtTime(750, t0);
   bp.frequency.exponentialRampToValueAtTime(320, t0 + dur);
   const g = ctx.createGain(); g.gain.value = 0.28;
@@ -1598,7 +1591,7 @@ function playShout() {
     const dd = buf.getChannelData(0);
     for (let i = 0; i < dd.length; i++) dd[i] = (Math.random() * 2 - 1) * (1 - i / dd.length);
     const src = ctx.createBufferSource(); src.buffer = buf;
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q = 0.7;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 0.7;
     const g = ctx.createGain(); g.gain.setValueAtTime(0.9, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     src.connect(bp); bp.connect(g); g.connect(master);
@@ -1621,7 +1614,7 @@ function playShout() {
     vib.start(t); vib.stop(t + dur + 0.03);
     osc.start(t); osc.stop(t + dur + 0.03);
     formants.forEach(({ f, q, g }) => {
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q = q;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
       const bg = ctx.createGain(); bg.gain.value = g;
       ctl.connect(bp); bp.connect(bg); bg.connect(master);
     });
