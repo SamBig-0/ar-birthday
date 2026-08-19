@@ -68,6 +68,7 @@ let cardEnvelopeMeshes = [];
 let readingCard = null;
 let savedCameraActive = false;
 let savedHint = '';
+let theaterIndex = 0;
 
 // Caja de sorpresas
 let boxGroup = null, boxLid = null;
@@ -75,6 +76,11 @@ let boxState = 'closed'; // closed → opening → open
 let boxT = 0;
 let boxParticles = [];
 let boxTimers = [];
+
+// Caja de música (sorpresa)
+let musicBoxGroup = null, musicBoxCrystal = null, musicBoxSprite = null;
+let musicBoxLight = null, musicBoxMeshes = [];
+let soothingAudio = null, musicDucked = false;
 
 // Lights references for fade-in
 let keyLight, fillLight, rimLight, cakeGlow, bounceLight, hemiLight;
@@ -239,6 +245,9 @@ async function init() {
 
   setProgress(90, 'Armando la caja de sorpresas');
   createSurpriseBox();
+
+  setProgress(91, 'Escondiendo la caja de música');
+  createMusicBox();
 
   setProgress(92, 'Preparando bomba de confeti');
   createConfettiBomb();
@@ -1211,6 +1220,45 @@ function closeCard() {
   setHintText(savedHint || '🎂 Toca el pastel y pide un deseo');
 }
 
+function snapCardBack(card) {
+  const d = card.userData;
+  d.state = 'idle';
+  d.paper.visible = false;
+  d.paper.position.y = 0;
+  d.front.material.opacity = 1;
+  card.position.copy(d.standPos);
+  card.rotation.y = d.standRot;
+  card.scale.set(1, 1, 1);
+}
+
+const THEATER_HINT = '🗞️ Toca / Espacio / F: siguiente · ESC: cerrar';
+
+function stopWalkAndRead() {
+  if (entryWalk) {
+    entryWalk = false;
+    cameraActive = true;
+    ui.classList.remove('hidden');
+  }
+  if (readingCard) { advanceCard(); return; }
+  theaterIndex = 0;
+  openCard(cards[theaterIndex]);
+  setHintText(THEATER_HINT);
+}
+
+function advanceCard() {
+  if (!readingCard || !cards.length) return;
+  const prev = savedHint;
+  const back = readingCard;
+  readingCard = null;
+  snapCardBack(back);
+  hideReader();
+  theaterIndex = (theaterIndex + 1) % cards.length;
+  cameraActive = savedCameraActive;
+  openCard(cards[theaterIndex]);
+  savedHint = prev;
+  setHintText(THEATER_HINT);
+}
+
 function updateCards(dt) {
   const tNow = performance.now() / 1000;
   const easeOut = t => 1 - Math.pow(1 - t, 3);
@@ -1643,6 +1691,106 @@ function updateBoxParticles(dt) {
 }
 
 // =====================================================================
+// CAJA DE MÚSICA — sorpresa oculta: al tocar suena la melodía
+// =====================================================================
+const MUSIC_URL = 'sam-soothing.mp3';
+const MUSIC_VOL = 70, DUCKED_VOL = 15;
+
+function createMusicBox() {
+  const g = new THREE.Group();
+
+  const goldMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf6b93b, roughness: 0.22, metalness: 0.9, clearcoat: 0.6,
+  });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 0.24), goldMat);
+  base.position.y = 0.16; base.castShadow = true; base.receiveShadow = true;
+  g.add(base);
+
+  const lidT = new THREE.Mesh(new THREE.BoxGeometry(0.33, 0.06, 0.27), goldMat);
+  lidT.position.y = 0.24; lidT.castShadow = true;
+  g.add(lidT);
+
+  const heart = new THREE.Mesh(heartGeo,
+    new THREE.MeshStandardMaterial({ color: 0xff2e63, roughness: 0.25, metalness: 0.3, emissive: 0x991a3e, emissiveIntensity: 0.35 }));
+  heart.rotation.x = Math.PI / 2; heart.scale.setScalar(0.8);
+  heart.position.y = 0.245;
+  g.add(heart);
+
+  musicBoxCrystal = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 16),
+    new THREE.MeshPhysicalMaterial({ color: 0xb8e7ff, roughness: 0.05, metalness: 0.1, transmission: 0.9, transparent: true, opacity: 0.9, clearcoat: 1 }));
+  musicBoxCrystal.position.y = 0.37;
+  g.add(musicBoxCrystal);
+
+  musicBoxLight = new THREE.PointLight(0x8fd3ff, 0.55, 2.2, 2);
+  musicBoxLight.position.y = 0.44;
+  g.add(musicBoxLight);
+
+  const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.font = '96px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🎶', 64, 64);
+  musicBoxSprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false })
+  );
+  musicBoxSprite.scale.set(0.5, 0.5, 0.5);
+  musicBoxSprite.position.y = 0.62;
+  musicBoxSprite.userData.baseY = 0.62;
+  g.add(musicBoxSprite);
+
+  g.position.set(-2.05, 0, -3.0); // esquina trasera izquierda, junto a la caja de sorpresas
+  scene.add(g);
+  musicBoxGroup = g;
+  musicBoxMeshes = [base, lidT, heart];
+}
+
+function updateMusicBox(dt) {
+  if (!musicBoxGroup) return;
+  const t = clock.getElapsedTime();
+  const s = soothingAudio && !soothingAudio.paused;
+  if (musicBoxCrystal) {
+    musicBoxCrystal.position.y = 0.37 + Math.sin(t * 1.6) * 0.03;
+    musicBoxCrystal.scale.setScalar(1 + Math.sin(t * 4) * 0.12 + (s ? Math.sin(t * 8) * 0.06 : 0));
+  }
+  if (musicBoxLight) musicBoxLight.intensity = 0.55 + Math.sin(t * 2.2) * 0.18 + (s ? 0.6 + Math.sin(t * 6) * 0.18 : 0);
+  if (musicBoxSprite) {
+    const b = s ? 1.2 : 1;
+    musicBoxSprite.scale.set(0.5 * b, 0.5 * b, 0.5 * b);
+    musicBoxSprite.position.y = musicBoxSprite.userData.baseY + Math.sin(t * 1.4) * 0.05;
+  }
+}
+
+function duckMusic(on) {
+  try {
+    if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(on ? DUCKED_VOL : MUSIC_VOL);
+  } catch (e) {}
+  musicDucked = on;
+}
+
+function updateSoothingToast() {
+  const toast = document.getElementById('soothingToast');
+  if (!toast) return;
+  if (soothingAudio && !soothingAudio.paused) toast.classList.remove('hidden');
+  else toast.classList.add('hidden');
+}
+
+function toggleSoothing() {
+  if (!soothingAudio) {
+    soothingAudio = new Audio(MUSIC_URL);
+    soothingAudio.loop = true;
+    soothingAudio.volume = 1;
+  }
+  if (!soothingAudio.paused) { stopSoothing(); return; }
+  duckMusic(true);
+  soothingAudio.play().then(updateSoothingToast).catch(() => duckMusic(false));
+}
+
+function stopSoothing() {
+  if (soothingAudio) soothingAudio.pause();
+  duckMusic(false);
+  updateSoothingToast();
+}
+
+// =====================================================================
 // CONFETTI BOMB — 3D party popper on ceiling
 // =====================================================================
 function createConfettiBomb() {
@@ -1771,10 +1919,25 @@ function setupControls() {
   btnConfetti.addEventListener('click', () => { launchConfetti(150); btnConfetti.classList.add('active'); setTimeout(() => btnConfetti.classList.remove('active'), 500); });
   btnFullscreen.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
 
-  // El lector de cartas se cierra con cualquier toque
-  if (readerOverlay) readerOverlay.addEventListener('click', () => closeCard());
+  // El lector de cartas: botón ✕ cierra, cualquier otro toque avanza
+  if (readerOverlay) readerOverlay.addEventListener('click', e => {
+    if (e.target.closest && e.target.closest('#readerClose')) closeCard();
+    else advanceCard();
+  });
 
-  window.addEventListener('keydown', e => keys.add(e.code));
+  window.addEventListener('keydown', e => {
+    keys.add(e.code);
+    // Teatro de cartas: F / Espacio / Enter abren o avanzan; ESC cierra
+    if (e.code === 'KeyF' || e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') {
+      e.preventDefault();
+      if (e.code === 'Escape') {
+        if (readingCard) closeCard();
+        return;
+      }
+      if (readingCard) { advanceCard(); return; }
+      stopWalkAndRead();
+    }
+  });
   window.addEventListener('keyup', e => keys.delete(e.code));
   window.addEventListener('blur', () => keys.clear());
 
@@ -1833,8 +1996,11 @@ function handleTap(x, y) {
   );
   raycaster.setFromCamera(ndc, camera);
 
-  // Mientras se lee una carta, cualquier toque la cierra
-  if (readingCard) { closeCard(); return; }
+  // Mientras se lee una carta: tocar pasa a la siguiente
+  if (readingCard) { advanceCard(); return; }
+
+  // Caminata automática: cualquier toque la detiene y abre la carta
+  if (entryWalk) { stopWalkAndRead(); return; }
 
   // ANTES de entrar: solo la puerta responde (paneles + marco)
   if (entryPhase === 'waiting') {
@@ -1847,9 +2013,17 @@ function handleTap(x, y) {
   if (surpriseTriggered) {
     const cardHits = raycaster.intersectObjects(cardEnvelopeMeshes, false);
     if (cardHits.length && cardHits[0].distance < 5) {
-      openCard(cardHits[0].object.userData.cardObj);
+      theaterIndex = cards.indexOf(cardHits[0].object.userData.cardObj);
+      openCard(cards[theaterIndex]);
+      setHintText(THEATER_HINT);
       return;
     }
+  }
+
+  // Caja de música: tocar la reproduce o la detiene
+  if (musicBoxMeshes.length) {
+    const mHits = raycaster.intersectObjects(musicBoxMeshes, false);
+    if (mHits.length && mHits[0].distance < 5) { toggleSoothing(); return; }
   }
 
   tryTapCake(ndc);
@@ -2236,6 +2410,7 @@ function render() {
     boxLid.rotation.x = Math.cos(boxT * 2.1) * 0.2;
   }
   updateBoxParticles(dt);
+  updateMusicBox(dt);
 
   // Balloons
   balloons.forEach(b => {
