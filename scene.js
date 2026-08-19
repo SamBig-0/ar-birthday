@@ -210,6 +210,9 @@ async function init() {
 
   setTimeout(() => {
     loading.classList.add('hidden');
+    document.getElementById('hintChip').classList.add('hidden');
+    // El show arranca solo: un momento de suspenso y la puerta se abre
+    setTimeout(startEntrySequence, 1200);
   }, 400);
 
   setupControls();
@@ -232,8 +235,6 @@ async function startEntrySequence() {
   entryTime = 0;
   entered = true;
 
-  document.getElementById('hintChip').textContent = '🚪 ¡Entra! 🎉';
-
   // La puerta se abre (efecto de empujar) con crujido
   doorTargetAngle = -Math.PI * 0.5;
   surpriseTriggered = false;
@@ -250,7 +251,11 @@ async function startEntrySequence() {
   // Música principal justo después del grito
   setTimeout(playYouTubeMusic, 1600);
 
-  setTimeout(() => { document.getElementById('hintChip').textContent = '🎂 Toca el pastel y pide un deseo'; }, 3200);
+  setTimeout(() => {
+    const chip = document.getElementById('hintChip');
+    chip.textContent = '🎂 Toca el pastel y pide un deseo';
+    chip.classList.remove('hidden');
+  }, 3200);
 
   setTimeout(() => {
     entryPhase = 'done';
@@ -284,15 +289,31 @@ function initYouTubeMusic() {
 }
 
 function playYouTubeMusic() {
-  try {
-    if (ytPlayer && ytPlayer.playVideo) {
-      ytPlayer.setVolume(70);
-      ytPlayer.playVideo();
-      musicPlaying = true;
-      return;
-    }
-  } catch (e) { /* fallthrough */ }
-  playFallbackMusic();
+  let attempts = 0;
+  const tryPlay = () => {
+    attempts++;
+    try {
+      if (ytPlayer && ytPlayer.playVideo) {
+        ytPlayer.setVolume(70);
+        ytPlayer.playVideo();
+        const check = () => {
+          try {
+            if (ytPlayer.getPlayerState && ytPlayer.getPlayerState() === 1) {
+              musicPlaying = true;
+              return;
+            }
+            if (attempts < 5) setTimeout(tryPlay, 800);
+            else playFallbackMusic();
+          } catch (e) { playFallbackMusic(); }
+        };
+        setTimeout(check, 900);
+        return;
+      }
+    } catch (e) { /* fallthrough */ }
+    if (attempts < 4) setTimeout(tryPlay, 500);
+    else playFallbackMusic();
+  };
+  tryPlay();
 }
 
 function playFallbackMusic() {

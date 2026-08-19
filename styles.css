@@ -153,6 +153,8 @@ body {
   transition: opacity 0.5s;
 }
 
+.hint-chip.hidden { opacity: 0; }
+
 @keyframes hintPulse {
   0%, 100% { opacity: 0.85; }
   50% { opacity: 0.45; }
