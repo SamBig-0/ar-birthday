@@ -30,7 +30,7 @@ let entryWalk = false, entryDist = 0, surpriseTriggered = false, surpriseFlash =
 let autoTurn = false, yawTarget = Math.PI;
 let bobPhase = 0, stepAccum = 0;
 let keys = new Set();
-let touchF = 0, mv = { f: 0, s: 0 };
+let touchF = 0, touchS = 0, mv = { f: 0, s: 0 };
 let candleBlowing = false, candleBlown = false;
 let blowSession = null;
 let candleGlows = [];
@@ -38,6 +38,7 @@ let smoke = [];
 let raycaster = new THREE.Raycaster();
 let ritualTimers = [];
 let pointerId = null, lastPX = 0, lastPY = 0, dragDist = 0, downT = 0;
+const activePointers = new Map();
 const CAM_Y = 1.7;
 let balloons = [], streamers = [], confetti = [], partyLights = [];
 let cakeGroup;
@@ -1033,13 +1034,13 @@ function createCandle(x, y, z, color) {
 // CARTAS DE AMOR (al costado de la torta)
 // =====================================================================
 const CARD_MESSAGES = [
-  { title: 'Para Yoselyn', text: 'Yoselyn, esto lo armé con el corazón en la mano y las manos temblando de nervios. Hoy te toca ser feliz, no me lo discutas.', sign: 'Yo, el de la sorpresa 🤍' },
-  { title: 'Para Yoselyn', text: 'Te quiero más de lo que mis silencios dicen. Y tranquila, que mis silencios duran poco.', sign: 'El que te escucha (siempre) 😌' },
-  { title: 'Para Yoselyn', text: 'Si pudiera te regalaría el sol, pero solo pude esta fiestita y mis ganas de verte sonreír. ¿Te sirve?', sign: 'El que te quiere ver feliz' },
-  { title: 'Para Yoselyn', text: 'Gracias por existir y por hacerme creer que la vida sí premia. Hoy es tu día, así que nada de hablar de tu edad.', sign: 'El que arma todo esto' },
-  { title: 'Para Yoselyn', text: 'Te vi reír y entendí por qué hago todo esto: tu sonrisa es mi obra favorita.', sign: 'El que te mira cuando no miras' },
-  { title: 'Para Yoselyn', text: 'Esta carta vale menos que el abrazo que te daré al final. Tómalo primero y llévalo siempre contigo.', sign: 'Tu abrazo favorito' },
-  { title: 'Para Yoselyn', text: 'Que este año te encuentre tan brillante como siempre y un poquito más consentida, que alguien se está ocupando de eso.', sign: 'El que te consiente' },
+  { title: 'Para Yoselyn', text: 'No necesito un día especial para amarte, pero hoy quiero recordarte que eres lo mejor que me ha pasado.', sign: 'Con todo mi corazón' },
+  { title: 'Para Yoselyn', text: 'Hay cumpleaños que pasan y cumpleaños que se quedan. Que este se quede grabado en tu memoria.', sign: 'Yo, el de la sorpresa' },
+  { title: 'Para Yoselyn', text: 'Desde que llegaste, cada día tiene un motivo para sonreír y cada noche un sueño que cumplir contigo.', sign: 'El que no deja de sonreír' },
+  { title: 'Para Yoselyn', text: 'Si tuviera que volver a elegir, te elegiría mil veces más, en cada vida y en cada historia.', sign: 'El que te elige todos los días' },
+  { title: 'Para Yoselyn', text: 'Te amo más hoy que ayer, y mañana te amaré aún más. Es la única fórmula que nunca me falla.', sign: 'Tu fórmula favorita 😌' },
+  { title: 'Para Yoselyn', text: 'No sé hacia dónde va la vida, pero mientras sea contigo, quiero seguir el camino.', sign: 'El que camina a tu lado' },
+  { title: 'Para Yoselyn', text: 'Hoy no solo te deseo el mejor cumpleaños: te deseo el mejor año de tu vida, y pienso estar en cada parte buena.', sign: 'El que cumple promesas' },
 ];
 const CARD_COLORS = ['#d94f70', '#8a5cf6', '#e0a52e', '#0fa3a3', '#e8546f', '#5c8df6', '#b05cd9'];
 
@@ -1664,19 +1665,29 @@ function setupControls() {
 
   canvas.addEventListener('pointerdown', e => {
     if (!cameraActive && entryPhase !== 'waiting' && !readingCard) return;
-    pointerId = e.pointerId;
-    lastPX = e.clientX; lastPY = e.clientY;
-    dragDist = 0; downT = performance.now();
-    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    if (activePointers.size === 0) {
+      pointerId = e.pointerId;
+      lastPX = e.clientX; lastPY = e.clientY;
+      dragDist = 0; downT = performance.now();
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   });
   canvas.addEventListener('pointermove', e => {
-    if (e.pointerId !== pointerId) return;
-    const dx = e.clientX - lastPX, dy = e.clientY - lastPY;
-    lastPX = e.clientX; lastPY = e.clientY;
-    dragDist += Math.abs(dx) + Math.abs(dy);
+    if (!activePointers.has(e.pointerId)) return;
+    const p = activePointers.get(e.pointerId);
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (e.pointerId === pointerId) dragDist += Math.abs(dx) + Math.abs(dy);
     if (!cameraActive) return;
-    if (!autoTurn) camera.rotation.y -= dx * 0.005;   // girar el cuarto (yaw)
-    touchF -= dy * 0.02;                               // arrastrar en vertical = caminar
+    if (activePointers.size >= 2) {
+      // Dos dedos: caminar (vertical = adelante/atrás, horizontal = lateral)
+      touchF -= dy * 0.03;
+      touchS -= dx * 0.03;
+    } else if (e.pointerId === pointerId && !autoTurn) {
+      camera.rotation.y -= dx * 0.005;   // girar a los lados
+      camera.rotation.x = Math.max(-1.1, Math.min(1.1, camera.rotation.x - dy * 0.004)); // mirar arriba/abajo (solo dentro del cuarto)
+    }
   });
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
@@ -1692,10 +1703,11 @@ function setupControls() {
 }
 
 function onPointerUp(e) {
+  activePointers.delete(e.pointerId);
   if (e.pointerId !== pointerId) return;
+  const wasTap = dragDist < 14 && performance.now() - downT < 600 && activePointers.size === 0;
   pointerId = null;
-  const wasTap = dragDist < 14 && performance.now() - downT < 600;
-  touchF = 0;
+  touchF = 0; touchS = 0;
   if (wasTap) handleTap(e.clientX, e.clientY);
 }
 
@@ -1749,7 +1761,7 @@ function updateCamera(dt) {
   if (keys.has('KeyD') || keys.has('ArrowRight')) ks += 1;
 
   mv.f += (touchF + kf - mv.f) * k;
-  mv.s += (ks - mv.s) * k;
+  mv.s += (touchS + ks - mv.s) * k;
 
   // Giro automático hacia la fiesta tras la entrada
   if (autoTurn) {
@@ -1780,7 +1792,6 @@ function updateCamera(dt) {
     bobPhase *= 1 - Math.min(1, dt * 6);
   }
   camera.position.y = CAM_Y + Math.sin(bobPhase) * 0.035;
-  camera.rotation.x = 0;
   camera.rotation.z = 0;
 }
 
@@ -1815,7 +1826,7 @@ function updateEntryWalk(dt) {
     cameraActive = true;
     ui.classList.remove('hidden');
     const chip = document.getElementById('hintChip');
-    chip.textContent = '🚶 Avanza hasta la torta con W/A/S/D o arrastra';
+    chip.textContent = '🚶 Camina con W/A/S/D o 2 dedos · arrastra para mirar';
   }
 }
 
