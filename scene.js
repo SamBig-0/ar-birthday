@@ -1,17 +1,8 @@
 /**
- * 🎂 CUMPLEAÑOS AR — Full Realismo + Secuencia de Entrada
- *
- * Secuencia dramática:
- *   1. Cuarto oscuro, solo la puerta visible
- *   2. Toca para entrar → puerta se abre con animación
- *   3. Las luces se encienden una por una
- *   4. La bomba de confeti EXPLOTA desde el techo
- *   5. La música de cumpleaños empieza a sonar
- *   6. La fiesta comienza 🎉
+ * Interior 3D interactivo.
  */
 
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -33,11 +24,21 @@ const BALLOON_COLORS = [0xff4d6d, 0xc77dff, 0x48bfe3, 0xffd60a, 0xff6b6b, 0xff9e
 // =====================================================================
 // STATE
 // =====================================================================
-let scene, camera, renderer, composer, controls, clock;
+let scene, camera, renderer, composer, clock;
+let cameraActive = false;
+let keys = new Set();
+let touchF = 0, mv = { f: 0, s: 0 };
+let candleBlowing = false, candleBlown = false;
+let candleGlows = [];
+let smoke = [];
+let raycaster = new THREE.Raycaster();
+let ritualTimers = [];
+let pointerId = null, lastPX = 0, lastPY = 0, dragDist = 0, downT = 0;
+const CAM_Y = 1.7;
 let balloons = [], streamers = [], confetti = [], partyLights = [];
 let cakeGroup, cakeVisible = true;
 let partyLightsOn = false; // starts OFF (dark room)
-let musicPlaying = false, audioCtx, musicTimeout;
+let musicPlaying = false, audioCtx, entered = false;
 
 // Door
 let doorLeft, doorRight;
@@ -148,28 +149,21 @@ async function init() {
   scene.background = new THREE.Color(0x020205); // Almost black
   scene.fog = new THREE.FogExp2(0x020205, 0.08);
 
-  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 1.6, 5);
-  camera.lookAt(0, 1.2, 0);
+  camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.rotation.order = 'YXZ';
+  camera.position.set(0, CAM_Y, 2.9);
+  camera.rotation.y = 0;
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.15; // START DARK
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-  controls = new OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.target.set(0, 1.3, -1.5);
-  controls.minDistance = 1.5;
-  controls.maxDistance = 8;
-  controls.maxPolarAngle = Math.PI * 0.85;
-  controls.enabled = false; // Disabled during entry
-  controls.update();
+  cameraActive = false; // Activa tras la entrada
 
   setProgress(15, 'Generando texturas');
   const woodTex = makeWoodTexture();
@@ -218,7 +212,7 @@ async function init() {
 
   setupControls();
   window.addEventListener('resize', onResize);
-  checkARSupport();
+  initYouTubeMusic();
   animate();
 }
 
@@ -240,17 +234,18 @@ async function startEntrySequence() {
   if (entryPhase !== 'waiting') return;
   entryPhase = 'opening';
   entryTime = 0;
+  entered = true;
 
   // Hide overlay with dramatic fade
   entryOverlay.style.transition = 'opacity 1s ease';
   entryOverlay.style.opacity = '0';
   setTimeout(() => entryOverlay.classList.add('hidden'), 1000);
 
-  // Start YouTube music (try to play)
-  startYouTubeMusic();
-
   // Open the doors
   doorTargetAngle = -Math.PI * 0.45; // ~80 degrees open
+
+  // Suena la música justo al abrir la puerta
+  playYouTubeMusic();
 
   // After door opens, start lights
   setTimeout(() => {
@@ -259,7 +254,7 @@ async function startEntrySequence() {
     lightsProgress = 0;
     // Show UI
     ui.classList.remove('hidden');
-    controls.enabled = true;
+    cameraActive = true;
   }, 1200);
 
   // After lights are up, explode confetti bomb
@@ -274,32 +269,42 @@ async function startEntrySequence() {
   }, 4000);
 }
 
-function startYouTubeMusic() {
+function initYouTubeMusic() {
   try {
-    const iframe = document.getElementById('ytPlayer');
-    if (iframe) {
-      // Use YouTube IFrame API
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(tag);
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
 
-      window.onYouTubeIframeAPIReady = () => {
+    window.onYouTubeIframeAPIReady = () => {
+      try {
         ytPlayer = new YT.Player('ytPlayer', {
           events: {
-            onReady: (e) => {
-              e.target.setVolume(70);
-              e.target.playVideo();
-              musicPlaying = true;
-              document.getElementById('btnMusic').classList.add('active');
+            onReady: () => {
+              if (entered) {
+                ytPlayer.setVolume(70);
+                ytPlayer.playVideo();
+                musicPlaying = true;
+              }
             },
+            onError: () => { playFallbackMusic(); },
+            onStateChange: () => {},
           },
         });
-      };
+      } catch (e) { playFallbackMusic(); }
+    };
+  } catch (e) { playFallbackMusic(); }
+}
+
+function playYouTubeMusic() {
+  try {
+    if (ytPlayer && ytPlayer.playVideo) {
+      ytPlayer.setVolume(70);
+      ytPlayer.playVideo();
+      musicPlaying = true;
+      return;
     }
-  } catch (e) {
-    console.log('YouTube API not available, using WebAudio fallback');
-    playFallbackMusic();
-  }
+  } catch (e) { /* fallthrough */ }
+  playFallbackMusic();
 }
 
 function playFallbackMusic() {
@@ -340,7 +345,7 @@ function createLighting() {
   keyLight = new THREE.DirectionalLight(0xfff0dd, 0);
   keyLight.position.set(3, 4, 2);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.mapSize.set(1024, 1024);
   keyLight.shadow.camera.near = 0.5;
   keyLight.shadow.camera.far = 15;
   keyLight.shadow.camera.left = -5;
@@ -913,9 +918,10 @@ function createCandle(x, y, z, color) {
   core.position.set(x, y + 0.118, z); core.userData.isFlame = true;
   cakeGroup.add(core);
 
-  const cGlow = new THREE.PointLight(0xffaa44, 0, 1.5, 2);
+  const cGlow = new THREE.PointLight(0xffaa44, 0.15, 1.5, 2);
   cGlow.position.set(x, y + 0.14, z);
   cakeGroup.add(cGlow);
+  candleGlows.push(cGlow);
 }
 
 // =====================================================================
@@ -1157,25 +1163,19 @@ function launchConfetti(count = 150, cx = 0, cy = ROOM.h - 0.5, cz = -1.5) {
 function setupPostProcessing() {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.4, 0.85));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.4, 0.35, 0.8));
   composer.addPass(new OutputPass());
 }
 
 // =====================================================================
-// CONTROLS
+// CONTROLS + CÁMARA (solo rotación horizontal y avance)
 // =====================================================================
 function setupControls() {
-  const btnBalloons = document.getElementById('btnBalloons');
   const btnCake = document.getElementById('btnCake');
   const btnLights = document.getElementById('btnLights');
   const btnConfetti = document.getElementById('btnConfetti');
-  const btnMusic = document.getElementById('btnMusic');
-  const btnAR = document.getElementById('btnAR');
-  const btnInfo = document.getElementById('btnInfo');
-  const btnCloseInfo = document.getElementById('btnCloseInfo');
   const btnFullscreen = document.getElementById('btnFullscreen');
 
-  btnBalloons.addEventListener('click', () => { balloons.forEach(b => b.visible = !b.visible); btnBalloons.classList.toggle('active'); });
   btnCake.addEventListener('click', () => { cakeVisible = !cakeVisible; cakeGroup.visible = cakeVisible; btnCake.classList.toggle('active'); });
   btnLights.addEventListener('click', () => {
     partyLightsOn = !partyLightsOn;
@@ -1183,58 +1183,173 @@ function setupControls() {
     btnLights.classList.toggle('active');
   });
   btnConfetti.addEventListener('click', () => { launchConfetti(150); btnConfetti.classList.add('active'); setTimeout(() => btnConfetti.classList.remove('active'), 500); });
-  btnMusic.addEventListener('click', () => {
-    if (musicPlaying) {
-      if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
-      else if (audioCtx) { audioCtx.close(); audioCtx = null; }
-      musicPlaying = false;
-    } else {
-      if (ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo();
-      else playFallbackMusic();
-      musicPlaying = true;
-    }
-    btnMusic.classList.toggle('active');
-  });
-  btnInfo.addEventListener('click', () => document.getElementById('infoPanel').classList.remove('hidden'));
-  btnCloseInfo.addEventListener('click', () => document.getElementById('infoPanel').classList.add('hidden'));
   btnFullscreen.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
-  btnAR.addEventListener('click', startAR);
+
+  window.addEventListener('keydown', e => keys.add(e.code));
+  window.addEventListener('keyup', e => keys.delete(e.code));
+  window.addEventListener('blur', () => keys.clear());
+
+  canvas.addEventListener('pointerdown', e => {
+    if (!cameraActive) return;
+    pointerId = e.pointerId;
+    lastPX = e.clientX; lastPY = e.clientY;
+    dragDist = 0; downT = performance.now();
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (e.pointerId !== pointerId) return;
+    const dx = e.clientX - lastPX, dy = e.clientY - lastPY;
+    lastPX = e.clientX; lastPY = e.clientY;
+    dragDist += Math.abs(dx) + Math.abs(dy);
+    camera.rotation.y -= dx * 0.005;            // girar el cuarto (yaw)
+    touchF -= dy * 0.02;                        // arrastrar en vertical = avanzar/retroceder
+  });
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerUp);
+}
+
+function onPointerUp(e) {
+  if (e.pointerId !== pointerId) return;
+  pointerId = null;
+  const wasTap = dragDist < 8 && performance.now() - downT < 450;
+  touchF = 0;
+  if (wasTap) tryTapCake();
+}
+
+function updateCamera(dt) {
+  const k = 1 - Math.exp(-8 * dt);
+  let kf = 0, ks = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) kf += 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) kf -= 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) ks -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) ks += 1;
+
+  mv.f += (touchF + kf - mv.f) * k;
+  mv.s += (ks - mv.s) * k;
+
+  const yaw = camera.rotation.y;
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+
+  camera.position.x += (fx * mv.f + rx * mv.s) * dt * 2.4;
+  camera.position.z += (fz * mv.f + rz * mv.s) * dt * 2.4;
+
+  camera.position.x = THREE.MathUtils.clamp(camera.position.x, -ROOM.w / 2 + 0.45, ROOM.w / 2 - 0.45);
+  camera.position.z = THREE.MathUtils.clamp(camera.position.z, -ROOM.d / 2 + 0.6, ROOM.d / 2 - 0.05);
+  camera.position.y = CAM_Y;
+  camera.rotation.x = 0;
+  camera.rotation.z = 0;
 }
 
 // =====================================================================
-// AR
+// SOPLAR LAS VELAS + APLAUSOS
 // =====================================================================
-function checkARSupport() {
-  const btnAR = document.getElementById('btnAR');
-  const arHint = document.getElementById('arHint');
-  const arLabel = document.getElementById('arLabel');
-  if (!navigator.xr) {
-    arLabel.textContent = 'AR no disponible en este navegador';
-    arHint.textContent = 'Prueba con Chrome en celular Android';
-    btnAR.style.opacity = '0.4';
-    btnAR.style.cursor = 'not-allowed';
+function tryTapCake() {
+  if (candleBlown || !cakeGroup || !cakeGroup.visible) return;
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hits = raycaster.intersectObjects(cakeGroup.children, true);
+  if (!hits.length) return;
+  if (camera.position.distanceTo(hits[0].point) < 5) triggerCandleRitual();
+}
+
+function triggerCandleRitual() {
+  if (candleBlown) return;
+  ritualTimers.forEach(clearTimeout);
+  ritualTimers = [];
+  const wishEl = document.getElementById('wishOverlay');
+  wishEl.textContent = '✨ Cierra los ojos y pide un deseo…';
+  wishEl.classList.remove('hidden');
+  ritualTimers.push(setTimeout(blowCandles, 1500));
+}
+
+function blowCandles() {
+  candleBlowing = true;
+  playWhoosh();
+  ritualTimers.push(setTimeout(() => {
+    candleBlowing = false;
+    candleBlown = true;
+    candleGlows.forEach(g => { g.visible = false; });
+    spawnSmoke();
+    launchConfetti(90, cakeGroup.position.x, 1.45, cakeGroup.position.z);
+    const wishEl = document.getElementById('wishOverlay');
+    wishEl.textContent = '🎉 ¡Deseo cumplido!';
+    ritualTimers.push(setTimeout(playApplause, 350));
+    ritualTimers.push(setTimeout(() => wishEl.classList.add('hidden'), 4200));
+  }, 700));
+}
+
+function spawnSmoke() {
+  cakeGroup.children.forEach(child => {
+    if (!child.userData || !child.userData.isFlame) return;
+    if (child.position.y < 1.0) return;
+    const puff = new THREE.Mesh(
+      new THREE.SphereGeometry(0.022, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xd8d8d8, transparent: true, opacity: 0.55, depthWrite: false })
+    );
+    puff.position.set(child.position.x + (Math.random() - 0.5) * 0.03,
+      child.position.y + 0.05, child.position.z);
+    scene.add(puff);
+    smoke.push({ mesh: puff, life: 1.6, vy: 0.5 + Math.random() * 0.25 });
+  });
+}
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
   }
+  return audioCtx;
 }
 
-async function startAR() {
-  if (!navigator.xr) { alert('WebXR no soportado.'); return; }
-  try {
-    const supported = await navigator.xr.isSessionSupported('immersive-ar');
-    if (!supported) { alert('AR no disponible.'); return; }
-    const session = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'],
-      domOverlay: { root: document.getElementById('ui') },
-    });
-    renderer.xr.enabled = true; await renderer.xr.setSession(session);
-    scene.background = null;
-    document.getElementById('btnAR').classList.add('active');
-    document.getElementById('btnAR').querySelector('span:last-child').textContent = 'Salir de AR';
-    session.addEventListener('end', () => {
-      renderer.xr.enabled = false; scene.background = new THREE.Color(0x020205);
-      document.getElementById('btnAR').classList.remove('active');
-      document.getElementById('btnAR').querySelector('span:last-child').textContent = 'Ver en Realidad Aumentada';
-    });
-  } catch (e) { alert('Error AR: ' + e.message); }
+function playWhoosh() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const t0 = ctx.currentTime, dur = 0.5;
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) {
+    const env = Math.sin(Math.PI * i / d.length);
+    d[i] = (Math.random() * 2 - 1) * env;
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q = 1.5;
+  bp.frequency.setValueAtTime(350, t0);
+  bp.frequency.exponentialRampToValueAtTime(1800, t0 + dur);
+  const g = ctx.createGain(); g.gain.value = 0.22;
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(t0);
+}
+
+function playApplause() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const master = ctx.createGain();
+  master.gain.value = 0.6;
+  master.connect(ctx.destination);
+  const t0 = ctx.currentTime + 0.06;
+
+  const clap = (t, gain) => {
+    const dur = 0.05 + Math.random() * 0.03;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const dd = buf.getChannelData(0);
+    for (let i = 0; i < dd.length; i++) dd[i] = (Math.random() * 2 - 1) * (1 - i / dd.length);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 800 + Math.random() * 1600; bp.Q = 1.1;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur);
+  };
+
+  let t = t0;
+  const end = t0 + 3.5;
+  while (t < end) {
+    const fade = t - t0 > 2.2 ? 0.5 : 1;
+    const n = 4 + Math.floor(Math.random() * 10);
+    for (let i = 0; i < n; i++) clap(t + Math.random() * 0.09, (0.5 + Math.random() * 0.5) * fade);
+    t += 0.22 + Math.random() * 0.28;
+  }
 }
 
 // =====================================================================
@@ -1258,8 +1373,8 @@ function render() {
   // Lighting fade-in
   updateLighting(dt);
 
-  // Controls
-  if (controls.enabled) controls.update();
+  // Cámara
+  if (cameraActive) updateCamera(dt);
 
   // Balloons
   balloons.forEach(b => {
@@ -1290,8 +1405,17 @@ function render() {
   if (cakeGroup && cakeGroup.visible) {
     cakeGroup.children.forEach(child => {
       if (child.userData && child.userData.isFlame) {
-        child.scale.y = 0.85 + Math.sin(t * 9 + Math.random() * 0.5) * 0.25;
-        child.scale.x = 0.9 + Math.sin(t * 7 + Math.random() * 0.5) * 0.15;
+        let sY, sX;
+        if (candleBlown) {
+          sY = 0.001; sX = 0.001;
+        } else {
+          const seed = child.position.x * 13 + child.position.z * 7;
+          let f = Math.sin(t * 9 + seed) + Math.sin(t * 23 + seed * 1.7);
+          if (candleBlowing) f += Math.sin(t * 42 + seed) * 1.4;
+          sY = 0.85 + f * 0.2;
+          sX = 0.9 + Math.sin(t * 7 + seed * 1.3) * 0.12;
+        }
+        child.scale.set(sX, sY, sX);
       }
       if (child.userData && child.userData.isSpark) {
         child.material.opacity = 0.5 + Math.sin(t * 15) * 0.5;
@@ -1299,6 +1423,16 @@ function render() {
       }
     });
   }
+
+  // Humo de velas apagadas
+  smoke = smoke.filter(p => {
+    p.life -= dt;
+    if (p.life <= 0) { scene.remove(p.mesh); return false; }
+    p.mesh.position.y += dt * p.vy;
+    p.mesh.scale.addScalar(dt * 0.22);
+    p.mesh.material.opacity = Math.max(0, p.life / 1.6) * 0.55;
+    return true;
+  });
 
   // Confetti
   confetti = confetti.filter(pts => {

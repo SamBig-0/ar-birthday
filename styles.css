@@ -133,46 +133,52 @@ body {
   backdrop-filter: blur(8px);
 }
 
-/* AR Button */
-.ar-controls {
+/* Hint y mensaje de deseo */
+.hint-chip {
   position: absolute;
-  bottom: 80px;
+  bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
-  text-align: center;
-}
-
-.btn-ar {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, var(--purple), var(--pink));
-  border: none;
+  padding: 8px 18px;
+  background: rgba(15, 15, 25, 0.75);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 99px;
-  color: white;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 24px rgba(168, 85, 247, 0.4);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.btn-ar:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 32px rgba(168, 85, 247, 0.6);
-}
-.btn-ar:active { transform: scale(0.97); }
-.ar-icon { font-size: 20px; }
-
-.btn-ar.active {
-  background: linear-gradient(135deg, var(--red), #ff4757);
-  box-shadow: 0 4px 24px rgba(239, 68, 68, 0.4);
-}
-
-.ar-hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
-  margin-top: 8px;
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  animation: hintPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes hintPulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.45; }
+}
+
+.wish-overlay {
+  position: absolute;
+  top: 26%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 14px 26px;
+  background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(255,107,157,0.25));
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 99px;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  color: #fff;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 40px rgba(168,85,247,0.4);
+  animation: wishPop 0.4s;
+  max-width: 92vw;
+}
+
+.wish-overlay.hidden { display: none; }
+
+@keyframes wishPop {
+  from { opacity: 0; transform: translateX(-50%) scale(0.7); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 
 /* Bottom controls */
@@ -208,58 +214,11 @@ body {
   box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
 }
 
-/* Info panel */
-.info-panel {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--card);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 20px;
-  padding: 24px;
-  max-width: 320px;
-  width: 90%;
-  backdrop-filter: blur(16px);
-  animation: fadeIn 0.3s;
+/* ====== RESPONSIVE ====== */
+@media (max-width: 380px) {
+  .ctrl-btn { width: 42px; height: 42px; font-size: 18px; }
+  .wish-overlay { font-size: 16px; padding: 10px 18px; }
 }
-.info-panel.hidden { display: none; }
-
-.info-panel h3 {
-  font-size: 18px;
-  margin-bottom: 12px;
-}
-.info-panel p {
-  font-size: 13px;
-  color: var(--text-dim);
-  margin-bottom: 12px;
-}
-.info-panel ul {
-  list-style: none;
-  margin-bottom: 16px;
-}
-.info-panel li {
-  font-size: 13px;
-  padding: 4px 0;
-}
-
-.btn-close {
-  width: 100%;
-  padding: 10px;
-  background: var(--purple);
-  border: none;
-  border-radius: 10px;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-
-/* ====== ENTRY OVERLAY ====== */
 #entryOverlay {
   position: fixed;
   inset: 0;
