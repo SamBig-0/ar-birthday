@@ -1766,11 +1766,13 @@ function duckMusic(on) {
   musicDucked = on;
 }
 
-function updateSoothingToast() {
-  const toast = document.getElementById('soothingToast');
-  if (!toast) return;
-  if (soothingAudio && !soothingAudio.paused) toast.classList.remove('hidden');
-  else toast.classList.add('hidden');
+function updateSoothingBtn() {
+  const btn = document.getElementById('btnSoothing');
+  if (!btn) return;
+  const s = soothingAudio && !soothingAudio.paused;
+  btn.textContent = s ? '⏸' : '▶';
+  btn.classList.toggle('playing', !!s);
+  btn.title = s ? 'Detener música' : 'Música';
 }
 
 function toggleSoothing() {
@@ -1781,13 +1783,13 @@ function toggleSoothing() {
   }
   if (!soothingAudio.paused) { stopSoothing(); return; }
   duckMusic(true);
-  soothingAudio.play().then(updateSoothingToast).catch(() => duckMusic(false));
+  soothingAudio.play().then(updateSoothingBtn).catch(() => duckMusic(false));
 }
 
 function stopSoothing() {
   if (soothingAudio) soothingAudio.pause();
   duckMusic(false);
-  updateSoothingToast();
+  updateSoothingBtn();
 }
 
 // =====================================================================
@@ -1918,6 +1920,7 @@ function setupControls() {
   });
   btnConfetti.addEventListener('click', () => { launchConfetti(150); btnConfetti.classList.add('active'); setTimeout(() => btnConfetti.classList.remove('active'), 500); });
   btnFullscreen.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
+  document.getElementById('btnSoothing').addEventListener('click', toggleSoothing);
 
   // El lector de cartas: botón ✕ cierra, cualquier otro toque avanza
   if (readerOverlay) readerOverlay.addEventListener('click', e => {

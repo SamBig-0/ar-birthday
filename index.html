@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>✨</title>
-  <link rel="stylesheet" href="styles.css?v=21">
+  <link rel="stylesheet" href="styles.css?v=23">
 </head>
 <body>
   <!-- Loading -->
@@ -43,15 +43,6 @@
   <!-- Hint de acción -->
   <div class="hint-chip" id="hintChip">🚪 Toca la puerta para entrar</div>
 
-  <!-- Sorpresa musical -->
-  <div id="soothingToast" class="soothing-toast hidden">
-    <span class="st-note">🎶</span>
-    <div class="st-info">
-      <b>Sam - Soothing &amp; Meditative</b>
-      <small>Toca la caja de música para detener</small>
-    </div>
-  </div>
-
   <!-- Lector de cartas (siempre legible) -->
   <div id="readerOverlay" class="reader-overlay hidden">
     <div class="reader-card">
@@ -76,6 +67,7 @@
     <div class="bottom-bar">
       <button class="ctrl-btn active" id="btnLights" title="Luces">✨</button>
       <button class="ctrl-btn" id="btnConfetti" title="Confeti">🎉</button>
+      <button class="ctrl-btn" id="btnSoothing" title="Música">▶</button>
     </div>
   </div>
 
@@ -88,6 +80,6 @@
     }
   }
   </script>
-  <script type="module" src="scene.js?v=21"></script>
+  <script type="module" src="scene.js?v=23"></script>
 </body>
 </html>
