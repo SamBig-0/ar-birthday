@@ -68,6 +68,13 @@ let readingCard = null;
 let savedCameraActive = false;
 let savedHint = '';
 
+// Caja de sorpresas
+let boxGroup = null, boxLid = null;
+let boxState = 'closed'; // closed → opening → open
+let boxT = 0;
+let boxParticles = [];
+let boxTimers = [];
+
 // Lights references for fade-in
 let keyLight, fillLight, rimLight, cakeGlow, bounceLight, hemiLight;
 
@@ -228,6 +235,9 @@ async function init() {
 
   setProgress(88, 'Colocando regalos');
   createGifts();
+
+  setProgress(90, 'Armando la caja de sorpresas');
+  createSurpriseBox();
 
   setProgress(92, 'Preparando bomba de confeti');
   createConfettiBomb();
@@ -1033,6 +1043,34 @@ const CARD_MESSAGES = [
 ];
 const CARD_COLORS = ['#d94f70', '#8a5cf6', '#e0a52e', '#0fa3a3', '#e8546f', '#5c8df6', '#b05cd9'];
 
+// Figuras para lo que sale de la caja de sorpresas
+function heartShape(s) {
+  const sh = new THREE.Shape();
+  sh.moveTo(0.5 * s, 0.5 * s);
+  sh.bezierCurveTo(0.5 * s, 0.5 * s, 0.4 * s, 0, 0, 0);
+  sh.bezierCurveTo(-0.6 * s, 0, -0.6 * s, 0.7 * s, -0.6 * s, 0.7 * s);
+  sh.bezierCurveTo(-0.6 * s, 1.1 * s, -0.3 * s, 1.54 * s, 0.5 * s, 1.9 * s);
+  sh.bezierCurveTo(1.2 * s, 1.54 * s, 1.6 * s, 1.1 * s, 1.6 * s, 0.7 * s);
+  sh.bezierCurveTo(1.6 * s, 0.7 * s, 1.6 * s, 0, 1.0 * s, 0);
+  sh.bezierCurveTo(0.7 * s, 0, 0.5 * s, 0.5 * s, 0.5 * s, 0.5 * s);
+  sh.translate(-0.5 * s, -0.95 * s);
+  return sh;
+}
+function starShape(outer, inner) {
+  const sh = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i * Math.PI) / 5 - Math.PI / 2;
+    if (i === 0) sh.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else sh.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  sh.closePath();
+  return sh;
+}
+const heartGeo = new THREE.ShapeGeometry(heartShape(0.11), 10);
+const starGeo = new THREE.ShapeGeometry(starShape(0.11, 0.05), 10);
+const BOX_FILLER_COLORS = [0xff5d8f, 0xff8fab, 0xffd54f, 0x9b5de5, 0x5c8df6, 0x00f5d4];
+
 function wrapText(ctx, text, x, y, maxW, lh) {
   const words = text.split(' ');
   let line = '';
@@ -1347,6 +1385,148 @@ function createGifts() {
 }
 
 // =====================================================================
+// CAJA DE SORPRESAS — estalla y suelta corazones, estrellas y más
+// =====================================================================
+function createSurpriseBox() {
+  boxGroup = new THREE.Group();
+  const wrapMat = new THREE.MeshPhysicalMaterial({ color: 0xd94f70, roughness: 0.4, metalness: 0.05, clearcoat: 0.5 });
+  const ribbonMat = new THREE.MeshPhysicalMaterial({ color: 0xffd54f, roughness: 0.3, metalness: 0.1, clearcoat: 0.6 });
+
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.46), wrapMat);
+  base.position.y = 0.17; base.castShadow = true; base.receiveShadow = true;
+  boxGroup.add(base);
+  const ribH = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.014, 0.05), ribbonMat);
+  ribH.position.y = 0.17;
+  const ribV = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.014, 0.48), ribbonMat);
+  ribV.position.y = 0.17;
+  boxGroup.add(ribH); boxGroup.add(ribV);
+
+  boxLid = new THREE.Group();
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.09, 0.52), wrapMat);
+  lid.position.y = 0.045; lid.castShadow = true;
+  boxLid.add(lid);
+  const lRibH = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.012, 0.05), ribbonMat);
+  lRibH.position.y = 0.09;
+  const lRibV = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.54), ribbonMat);
+  lRibV.position.y = 0.09;
+  boxLid.add(lRibH); boxLid.add(lRibV);
+  const b1 = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.018, 10, 20), ribbonMat);
+  b1.position.set(-0.03, 0.115, 0); b1.rotation.y = Math.PI / 3;
+  const b2 = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.018, 10, 20), ribbonMat);
+  b2.position.set(0.03, 0.115, 0); b2.rotation.y = -Math.PI / 3;
+  boxLid.add(b1, b2);
+  boxLid.position.y = 0.34;
+  boxGroup.add(boxLid);
+
+  const glow = new THREE.PointLight(0xff8a5c, 0.6, 2.5, 2);
+  glow.position.set(0, 0.5, 0);
+  boxGroup.add(glow);
+
+  boxGroup.position.set(-2.05, 0, -1.75);
+  scene.add(boxGroup);
+}
+
+function spawnBoxFiller() {
+  if (boxParticles.length > 130) return;
+  const r = Math.random();
+  let mesh;
+  if (r < 0.4) {
+    mesh = new THREE.Mesh(heartGeo, new THREE.MeshBasicMaterial({
+      color: BOX_FILLER_COLORS[Math.floor(Math.random() * 3)], side: THREE.DoubleSide,
+    }));
+  } else if (r < 0.7) {
+    mesh = new THREE.Mesh(starGeo, new THREE.MeshBasicMaterial({ color: 0xffd54f, side: THREE.DoubleSide }));
+  } else if (r < 0.9) {
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.012, 0.004), new THREE.MeshBasicMaterial({
+      color: BOX_FILLER_COLORS[Math.floor(Math.random() * BOX_FILLER_COLORS.length)],
+    }));
+  } else {
+    mesh = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }));
+  }
+  const bp = boxGroup.position;
+  mesh.position.set(bp.x + (Math.random() - 0.5) * 0.2, bp.y + 0.42, bp.z + (Math.random() - 0.5) * 0.2);
+  scene.add(mesh);
+  boxParticles.push({
+    mesh,
+    vel: new THREE.Vector3((Math.random() - 0.5) * 1.4, 1.2 + Math.random() * 2.0, (Math.random() - 0.5) * 1.4),
+    spin: new THREE.Vector3((Math.random() - 0.5) * 7, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 7),
+    life: 2.6 + Math.random() * 2.2, t: 0, balloon: false,
+  });
+}
+
+function spawnBoxBalloon() {
+  if (boxParticles.length > 130) return;
+  const colors = [0xff4d6d, 0xc77dff, 0xffd60a];
+  const mat = new THREE.MeshPhysicalMaterial({ color: colors[Math.floor(Math.random() * 3)], roughness: 0.25, metalness: 0.05, clearcoat: 0.6, transparent: true });
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), mat);
+  sphere.castShadow = true;
+  const bp = boxGroup.position;
+  sphere.position.set(bp.x + (Math.random() - 0.5) * 0.14, bp.y + 0.42, bp.z + (Math.random() - 0.5) * 0.14);
+  const thread = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.5, 4),
+    new THREE.MeshBasicMaterial({ color: 0xdddddd }));
+  thread.position.y = -0.25;
+  sphere.add(thread);
+  scene.add(sphere);
+  boxParticles.push({
+    mesh: sphere,
+    vel: new THREE.Vector3((Math.random() - 0.5) * 0.3, 0.9 + Math.random() * 0.4, (Math.random() - 0.5) * 0.3),
+    spin: new THREE.Vector3(0, 0, 0), life: 7, t: 0, balloon: true,
+  });
+}
+
+function spawnBoxBigHeart() {
+  const mat = new THREE.MeshBasicMaterial({ color: 0xff5d8f, side: THREE.DoubleSide, transparent: true });
+  const mesh = new THREE.Mesh(heartGeo, mat);
+  const bp = boxGroup.position;
+  mesh.position.set(bp.x, bp.y + 0.4, bp.z);
+  mesh.scale.setScalar(2.4);
+  scene.add(mesh);
+  boxParticles.push({
+    mesh,
+    vel: new THREE.Vector3(0, 1.1, 0),
+    spin: new THREE.Vector3(0, 2, 0),
+    life: 4.5, t: 0, balloon: false,
+  });
+}
+
+function explodeSurpriseBox() {
+  if (!boxGroup || boxState !== 'closed') return;
+  boxState = 'opening';
+  boxT = 0;
+  boxTimers.forEach(clearTimeout);
+  boxTimers = [];
+  for (let i = 0; i < 46; i++) boxTimers.push(setTimeout(spawnBoxFiller, i * 100));
+  boxTimers.push(setTimeout(() => {
+    for (let i = 0; i < 3; i++) boxTimers.push(setTimeout(spawnBoxBalloon, i * 400 + 200));
+  }, 400));
+  boxTimers.push(setTimeout(spawnBoxBigHeart, 5000));
+}
+
+function updateBoxParticles(dt) {
+  for (let i = boxParticles.length - 1; i >= 0; i--) {
+    const p = boxParticles[i];
+    p.t += dt;
+    p.life -= dt;
+    if (p.balloon) p.vel.y = Math.max(0.1, p.vel.y - dt * 0.25);
+    else p.vel.y -= 2.4 * dt;
+    p.mesh.position.addScaledVector(p.vel, dt);
+    if (p.spin.x) p.mesh.rotation.x += p.spin.x * dt;
+    if (p.spin.y) p.mesh.rotation.y += p.spin.y * dt;
+    if (p.spin.z) p.mesh.rotation.z += p.spin.z * dt;
+    const mat = p.mesh.material;
+    if (mat.transparent) {
+      mat.opacity = Math.min(1, p.t * 3) * Math.max(0, Math.min(1, p.life / 0.7));
+    }
+    if (p.life <= 0 || p.mesh.position.y < 0.05) {
+      scene.remove(p.mesh);
+      mat.dispose();
+      boxParticles.splice(i, 1);
+    }
+  }
+}
+
+// =====================================================================
 // CONFETTI BOMB — 3D party popper on ceiling
 // =====================================================================
 function createConfettiBomb() {
@@ -1647,6 +1827,7 @@ function triggerSurprise() {
   surpriseFlash = true;
   partyLightsOn = true;
   partyLights.forEach(l => { l.light.visible = true; l.glow.visible = true; });
+  explodeSurpriseBox();
   setTimeout(() => { entryPhase = 'bomb'; explodeConfettiBomb(); }, 200);
   setTimeout(() => { surpriseFlash = false; }, 800);
   setTimeout(() => {
@@ -1912,6 +2093,17 @@ function render() {
 
   // Cartas de amor (volar a la cámara, lectura, regreso)
   updateCards(dt);
+
+  // Caja de sorpresas: tapa saltando y partículas
+  if (boxGroup && boxState !== 'closed') {
+    boxT += dt;
+    if (boxState === 'opening' && boxT > 0.3) boxState = 'open';
+    boxLid.position.y = 0.34 + Math.min(1, boxT * 1.5) * 0.55 + Math.sin(boxT * 3.1) * 0.035;
+    boxLid.rotation.y += dt * 7;
+    boxLid.rotation.z = Math.sin(boxT * 2.3) * 0.28;
+    boxLid.rotation.x = Math.cos(boxT * 2.1) * 0.2;
+  }
+  updateBoxParticles(dt);
 
   // Balloons
   balloons.forEach(b => {
