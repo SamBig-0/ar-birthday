@@ -155,7 +155,7 @@ async function init() {
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.rotation.order = 'YXZ';
   camera.position.set(0, CAM_Y, 3.6); // fuera, frente a la puerta cerrada
-  camera.rotation.y = Math.PI;         // mirando la puerta
+  camera.rotation.y = 0;              // mirando a la puerta (está delante, z=2.75)
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -361,11 +361,16 @@ function createLighting() {
   scene.add(bounceLight);
 
   // Door crack light — visible in the dark
-  const crackLight = new THREE.SpotLight(0xffeedd, 2, 6, Math.PI / 6, 0.5, 1);
+  const crackLight = new THREE.SpotLight(0xffeedd, 3.2, 6, Math.PI / 6, 0.5, 1);
   crackLight.position.set(0, 1.6, ROOM.d / 2 + 0.3);
   crackLight.target.position.set(0, 0, 0);
   scene.add(crackLight);
   scene.add(crackLight.target);
+
+  // Luz cálida del pasillo: la puerta se ve de frente
+  const porchLight = new THREE.PointLight(0xffe8c8, 1.2, 7, 2);
+  porchLight.position.set(0, 2.1, 3.4);
+  scene.add(porchLight);
 }
 
 function updateLighting(dt) {
@@ -1307,11 +1312,7 @@ function updateEntryWalk(dt) {
 
   camera.position.z = 3.6 - entryDist;
   camera.position.y = CAM_Y + Math.sin(bobPhase) * 0.035;
-
-  // Giro progresivo: entra mirando hacia el interior del cuarto
-  const prog = Math.min(1, entryDist / 2.5);
-  const ease = prog * prog * (3 - 2 * prog);
-  camera.rotation.y = Math.PI * (1 - ease);
+  camera.rotation.y = 0; // entra mirando hacia el interior del cuarto
 
   // CRUZA EL UMBRAL → ¡SORPRESA! (de frente)
   if (!surpriseTriggered && camera.position.z <= 2.62) triggerSurprise();
