@@ -255,7 +255,7 @@ async function startEntrySequence() {
     const chip = document.getElementById('hintChip');
     chip.textContent = '🎂 Toca el pastel y pide un deseo';
     chip.classList.remove('hidden');
-  }, 3200);
+  }, 4200);
 
   setTimeout(() => {
     entryPhase = 'done';
@@ -1357,8 +1357,8 @@ function updateEntryWalk(dt) {
   // CRUZA EL UMBRAL → ¡SORPRESA! (de frente)
   if (!surpriseTriggered && camera.position.z <= 2.62) triggerSurprise();
 
-  // Llegó al interior: control libre
-  if (camera.position.z <= 1.15) {
+  // Camina solo hasta quedar frente a la torta
+  if (camera.position.z <= -0.3) {
     entryWalk = false;
     cameraActive = true;
     ui.classList.remove('hidden');
