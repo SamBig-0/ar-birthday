@@ -17,17 +17,6 @@
     </div>
   </div>
 
-  <!-- Entry overlay -->
-  <div id="entryOverlay" class="hidden">
-    <div class="entry-content">
-      <div class="entry-confetti">🎊🎈🎉🎁🎂✨</div>
-      <div class="entry-name">¡Feliz Cumpleaños!</div>
-      <div class="entry-honoree">Yoselyn</div>
-      <button class="btn-pulsar" id="btnPulsar">🎉 PULSAR PARA ENTRAR 🎉</button>
-      <div class="entry-subtext">🎵 🎈 🎂 🎉</div>
-    </div>
-  </div>
-
   <!-- Canvas -->
   <canvas id="scene"></canvas>
 
@@ -41,6 +30,9 @@
     ></iframe>
   </div>
 
+  <!-- Hint de acción -->
+  <div class="hint-chip" id="hintChip">🚪 Toca la puerta para entrar</div>
+
   <!-- UI -->
   <div id="ui" class="hidden">
     <div class="top-bar">
@@ -48,11 +40,10 @@
       <button class="icon-btn" id="btnFullscreen" title="Fullscreen">⛶</button>
     </div>
 
-    <div class="hint-chip" id="hintChip">🎂 Toca el pastel y pide un deseo</div>
     <div class="wish-overlay hidden" id="wishOverlay"></div>
+    <div class="wind-meter hidden" id="windMeter"><div class="wm-fill" id="windFill"></div></div>
 
     <div class="bottom-bar">
-      <button class="ctrl-btn active" id="btnCake" title="Pastel">🎂</button>
       <button class="ctrl-btn active" id="btnLights" title="Luces">✨</button>
       <button class="ctrl-btn" id="btnConfetti" title="Confeti">🎉</button>
     </div>

@@ -32,6 +32,7 @@ let bobPhase = 0, stepAccum = 0;
 let keys = new Set();
 let touchF = 0, mv = { f: 0, s: 0 };
 let candleBlowing = false, candleBlown = false;
+let blowSession = null;
 let candleGlows = [];
 let smoke = [];
 let raycaster = new THREE.Raycaster();
@@ -39,7 +40,7 @@ let ritualTimers = [];
 let pointerId = null, lastPX = 0, lastPY = 0, dragDist = 0, downT = 0;
 const CAM_Y = 1.7;
 let balloons = [], streamers = [], confetti = [], partyLights = [];
-let cakeGroup, cakeVisible = true;
+let cakeGroup;
 let partyLightsOn = false; // starts OFF (dark room)
 let musicPlaying = false, audioCtx, entered = false;
 
@@ -66,7 +67,6 @@ const loading = document.getElementById('loading');
 const progressFill = document.getElementById('progressFill');
 const loadingText = document.getElementById('loadingText');
 const ui = document.getElementById('ui');
-const entryOverlay = document.getElementById('entryOverlay');
 
 // =====================================================================
 // PROCEDURAL TEXTURES
@@ -210,7 +210,6 @@ async function init() {
 
   setTimeout(() => {
     loading.classList.add('hidden');
-    showEntryOverlay();
   }, 400);
 
   setupControls();
@@ -225,39 +224,36 @@ function setProgress(pct, text) {
 }
 
 // =====================================================================
-// ENTRY OVERLAY
+// ENTRADA: pulsar la puerta desde afuera
 // =====================================================================
-function showEntryOverlay() {
-  entryOverlay.classList.remove('hidden');
-  const btnPulsar = document.getElementById('btnPulsar');
-  btnPulsar.addEventListener('click', startEntrySequence, { once: true });
-}
-
 async function startEntrySequence() {
   if (entryPhase !== 'waiting') return;
   entryPhase = 'opening';
   entryTime = 0;
   entered = true;
 
-  // Hide overlay rápido para ver la puerta
-  entryOverlay.style.transition = 'opacity 0.35s ease';
-  entryOverlay.style.opacity = '0';
-  setTimeout(() => entryOverlay.classList.add('hidden'), 400);
+  document.getElementById('hintChip').textContent = '🚪 ¡Entra! 🎉';
 
-  // Música apenas se abre la puerta
-  playYouTubeMusic();
-
-  // La puerta se abre (efecto de empujar); luego se entra caminando
+  // La puerta se abre (efecto de empujar)
   doorTargetAngle = -Math.PI * 0.5;
   surpriseTriggered = false;
   entryWalk = false;
   entryDist = 0;
-  setTimeout(() => { entryWalk = true; }, 700);
 
-  // Done
+  // GRITOS: ¡SORPRESAAA!
+  setTimeout(playShout, 400);
+
+  // Se entra caminando
+  setTimeout(() => { entryWalk = true; }, 800);
+
+  // Música principal justo después del grito
+  setTimeout(playYouTubeMusic, 1600);
+
+  setTimeout(() => { document.getElementById('hintChip').textContent = '🎂 Toca el pastel y pide un deseo'; }, 3200);
+
   setTimeout(() => {
     entryPhase = 'done';
-  }, 4000);
+  }, 5000);
 }
 
 function initYouTubeMusic() {
@@ -1172,12 +1168,10 @@ function setupPostProcessing() {
 // CONTROLS + CÁMARA (solo rotación horizontal y avance)
 // =====================================================================
 function setupControls() {
-  const btnCake = document.getElementById('btnCake');
   const btnLights = document.getElementById('btnLights');
   const btnConfetti = document.getElementById('btnConfetti');
   const btnFullscreen = document.getElementById('btnFullscreen');
 
-  btnCake.addEventListener('click', () => { cakeVisible = !cakeVisible; cakeGroup.visible = cakeVisible; btnCake.classList.toggle('active'); });
   btnLights.addEventListener('click', () => {
     partyLightsOn = !partyLightsOn;
     partyLights.forEach(l => { l.light.visible = partyLightsOn; l.glow.visible = partyLightsOn; });
@@ -1212,21 +1206,38 @@ function setupControls() {
 function onPointerUp(e) {
   if (e.pointerId !== pointerId) return;
   pointerId = null;
-  const wasTap = dragDist < 8 && performance.now() - downT < 450;
+  const wasTap = dragDist < 14 && performance.now() - downT < 600;
   touchF = 0;
-  if (wasTap) tryTapCake(e.clientX, e.clientY);
+  if (wasTap) handleTap(e.clientX, e.clientY);
 }
 
-function tryTapCake(x, y) {
-  if (candleBlown || !cakeGroup || !cakeGroup.visible) return;
+function handleTap(x, y) {
   const ndc = new THREE.Vector2(
     (x / window.innerWidth) * 2 - 1,
     -(y / window.innerHeight) * 2 + 1
   );
   raycaster.setFromCamera(ndc, camera);
+
+  // ANTES de entrar: solo la puerta responde
+  if (entryPhase === 'waiting') {
+    const doorHits = raycaster.intersectObjects([doorLeft, doorRight], true);
+    if (doorHits.length) startEntrySequence();
+    return;
+  }
+
+  tryTapCake(ndc);
+}
+
+function tryTapCake(ndc) {
+  if (!cakeGroup || !cakeGroup.visible) return;
+  raycaster.setFromCamera(ndc, camera);
   const hits = raycaster.intersectObjects(cakeGroup.children, true);
   if (!hits.length) return;
-  if (camera.position.distanceTo(hits[0].point) < 5) triggerCandleRitual();
+  if (camera.position.distanceTo(hits[0].point) < 5) {
+    if (candleBlown) { playApplause(); return; }
+    if (blowSession) doBlow();
+    else startBlowSession();
+  }
 }
 
 function updateCamera(dt) {
@@ -1326,19 +1337,71 @@ function triggerSurprise() {
 }
 
 // =====================================================================
-// SOPLAR LAS VELAS + APLAUSOS
+// SOPLAR LAS VELAS + APLAUSOS (con micrófono si se permite)
 // =====================================================================
-function triggerCandleRitual() {
-  if (candleBlown) return;
-  ritualTimers.forEach(clearTimeout);
-  ritualTimers = [];
+function startBlowSession() {
+  if (candleBlown || blowSession) return;
+  blowSession = { energy: 0, analyser: null, data: null, mic: null, safeTimer: null };
+
   const wishEl = document.getElementById('wishOverlay');
   wishEl.textContent = '✨ Cierra los ojos y pide un deseo…';
   wishEl.classList.remove('hidden');
-  ritualTimers.push(setTimeout(blowCandles, 1500));
+
+  setTimeout(() => {
+    if (!blowSession) return;
+    wishEl.textContent = '💨 ¡SOPLA fuerte! (o toca el pastel otra vez)';
+    requestMic();
+    blowSession.safeTimer = setTimeout(() => doBlow(), 9000);
+  }, 1600);
 }
 
-function blowCandles() {
+function requestMic() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    if (!blowSession) { stream.getTracks().forEach(t => t.stop()); return; }
+    const actx = getAudioCtx();
+    const src = actx.createMediaStreamSource(stream);
+    const analyser = actx.createAnalyser();
+    analyser.fftSize = 2048;
+    src.connect(analyser);
+    blowSession.analyser = analyser;
+    blowSession.data = new Uint8Array(analyser.fftSize);
+    blowSession.mic = stream;
+    document.getElementById('windMeter').classList.remove('hidden');
+  }).catch(() => { /* sin micrófono: se sopla tocando */ });
+}
+
+function updateBlow(dt) {
+  if (!blowSession || !blowSession.analyser) return;
+  const a = blowSession.analyser;
+  const d = blowSession.data;
+  a.getByteTimeDomainData(d);
+  let sum = 0;
+  for (let i = 0; i < d.length; i++) {
+    const v = (d[i] - 128) / 128;
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / d.length);
+  blowSession.energy += Math.max(0, rms - 0.1) * dt * 9;
+  const fill = document.getElementById('windFill');
+  if (fill) fill.style.width = Math.min(100, blowSession.energy * 75) + '%';
+  if (blowSession.energy >= 1) doBlow();
+}
+
+function doBlow() {
+  if (candleBlown) return;
+  if (blowSession) {
+    if (blowSession.mic) blowSession.mic.getTracks().forEach(t => t.stop());
+    clearTimeout(blowSession.safeTimer);
+    blowSession = null;
+    document.getElementById('windMeter').classList.add('hidden');
+  }
+  ritualTimers.forEach(clearTimeout);
+  ritualTimers = [];
+
+  const wishEl = document.getElementById('wishOverlay');
+  wishEl.textContent = '🎉 ¡Deseo cumplido!';
+
   candleBlowing = true;
   playWhoosh();
   ritualTimers.push(setTimeout(() => {
@@ -1347,11 +1410,9 @@ function blowCandles() {
     candleGlows.forEach(g => { g.visible = false; });
     spawnSmoke();
     launchConfetti(90, cakeGroup.position.x, 1.45, cakeGroup.position.z);
-    const wishEl = document.getElementById('wishOverlay');
-    wishEl.textContent = '🎉 ¡Deseo cumplido!';
     ritualTimers.push(setTimeout(playApplause, 350));
     ritualTimers.push(setTimeout(() => wishEl.classList.add('hidden'), 4200));
-  }, 700));
+  }, 600));
 }
 
 function spawnSmoke() {
@@ -1429,6 +1490,58 @@ function playApplause() {
   }
 }
 
+// Grito de fiesta: ¡SORPRESAAA! (síntesis vocal con formantes)
+function playShout() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const master = ctx.createGain();
+  master.gain.value = 0.38;
+  master.connect(ctx.destination);
+  const t0 = ctx.currentTime + 0.05;
+
+  // Ataque explosivo: estallido de aire
+  const punch = (t, dur) => {
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const dd = buf.getChannelData(0);
+    for (let i = 0; i < dd.length; i++) dd[i] = (Math.random() * 2 - 1) * (1 - i / dd.length);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q = 0.7;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur);
+  };
+
+  const vowel = (t, dur, f0, f1, formants) => {
+    const ctl = ctx.createGain();
+    ctl.gain.setValueAtTime(0.0001, t);
+    ctl.gain.linearRampToValueAtTime(1, t + 0.045);
+    ctl.gain.linearRampToValueAtTime(1, t + dur - 0.09);
+    ctl.gain.linearRampToValueAtTime(0.0001, t + dur);
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(f0, t);
+    osc.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const vib = ctx.createOscillator(); vib.frequency.value = 5.5;
+    const vibG = ctx.createGain(); vibG.gain.value = f0 * 0.035;
+    vib.connect(vibG); vibG.connect(osc.frequency);
+    osc.connect(ctl);
+    vib.start(t); vib.stop(t + dur + 0.03);
+    osc.start(t); osc.stop(t + dur + 0.03);
+    formants.forEach(({ f, q, g }) => {
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q = q;
+      const bg = ctx.createGain(); bg.gain.value = g;
+      ctl.connect(bp); bp.connect(bg); bg.connect(master);
+    });
+  };
+
+  punch(t0, 0.09);
+  vowel(t0 + 0.08, 0.24, 190, 215, [{ f: 470, q: 9, g: 1.0 }, { f: 880, q: 7, g: 0.5 }, { f: 2650, q: 10, g: 0.3 }]);
+  vowel(t0 + 0.32, 0.2, 215, 240, [{ f: 380, q: 9, g: 0.9 }, { f: 1980, q: 12, g: 0.6 }, { f: 2650, q: 10, g: 0.4 }]);
+  vowel(t0 + 0.52, 0.24, 245, 330, [{ f: 820, q: 9, g: 1.0 }, { f: 1180, q: 8, g: 0.55 }, { f: 2900, q: 11, g: 0.35 }]);
+  vowel(t0 + 0.76, 0.6, 330, 430, [{ f: 860, q: 8, g: 1.1 }, { f: 1240, q: 7, g: 0.6 }, { f: 3000, q: 10, g: 0.4 }]);
+  punch(t0 + 1.32, 0.12);
+}
+
 // =====================================================================
 // ANIMATION LOOP
 // =====================================================================
@@ -1501,6 +1614,9 @@ function render() {
       }
     });
   }
+
+  // Soplido de velas: detector de micrófono
+  updateBlow(dt);
 
   // Humo de velas apagadas
   smoke = smoke.filter(p => {
