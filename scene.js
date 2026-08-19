@@ -26,6 +26,8 @@ const BALLOON_COLORS = [0xff4d6d, 0xc77dff, 0x48bfe3, 0xffd60a, 0xff6b6b, 0xff9e
 // =====================================================================
 let scene, camera, renderer, composer, clock;
 let cameraActive = false;
+let autoTurn = false, yawTarget = Math.PI;
+let bobPhase = 0, stepAccum = 0;
 let keys = new Set();
 let touchF = 0, mv = { f: 0, s: 0 };
 let candleBlowing = false, candleBlown = false;
@@ -151,8 +153,8 @@ async function init() {
 
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.rotation.order = 'YXZ';
-  camera.position.set(0, CAM_Y, 2.9);
-  camera.rotation.y = 0;
+  camera.position.set(0, CAM_Y, 1.6);
+  camera.rotation.y = Math.PI; // mira hacia la puerta cerrada
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -247,11 +249,13 @@ async function startEntrySequence() {
   // Suena la música justo al abrir la puerta
   playYouTubeMusic();
 
-  // After door opens, start lights
+  // After door opens, start lights + giro hacia la fiesta
   setTimeout(() => {
     entryPhase = 'lights';
     lightsFadingIn = true;
     lightsProgress = 0;
+    yawTarget = 0;
+    autoTurn = true;
     // Show UI
     ui.classList.remove('hidden');
     cameraActive = true;
@@ -1201,8 +1205,8 @@ function setupControls() {
     const dx = e.clientX - lastPX, dy = e.clientY - lastPY;
     lastPX = e.clientX; lastPY = e.clientY;
     dragDist += Math.abs(dx) + Math.abs(dy);
-    camera.rotation.y -= dx * 0.005;            // girar el cuarto (yaw)
-    touchF -= dy * 0.02;                        // arrastrar en vertical = avanzar/retroceder
+    if (!autoTurn) camera.rotation.y -= dx * 0.005;   // girar el cuarto (yaw)
+    touchF -= dy * 0.02;                               // arrastrar en vertical = caminar
   });
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
@@ -1213,7 +1217,19 @@ function onPointerUp(e) {
   pointerId = null;
   const wasTap = dragDist < 8 && performance.now() - downT < 450;
   touchF = 0;
-  if (wasTap) tryTapCake();
+  if (wasTap) tryTapCake(e.clientX, e.clientY);
+}
+
+function tryTapCake(x, y) {
+  if (candleBlown || !cakeGroup || !cakeGroup.visible) return;
+  const ndc = new THREE.Vector2(
+    (x / window.innerWidth) * 2 - 1,
+    -(y / window.innerHeight) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(cakeGroup.children, true);
+  if (!hits.length) return;
+  if (camera.position.distanceTo(hits[0].point) < 5) triggerCandleRitual();
 }
 
 function updateCamera(dt) {
@@ -1227,31 +1243,56 @@ function updateCamera(dt) {
   mv.f += (touchF + kf - mv.f) * k;
   mv.s += (ks - mv.s) * k;
 
+  // Giro automático hacia la fiesta tras la entrada
+  if (autoTurn) {
+    camera.rotation.y += (yawTarget - camera.rotation.y) * Math.min(1, dt * 2.5);
+    if (Math.abs(yawTarget - camera.rotation.y) < 0.02) {
+      camera.rotation.y = yawTarget;
+      autoTurn = false;
+    }
+  }
+
   const yaw = camera.rotation.y;
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
   const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const WALK = 2.0;
 
-  camera.position.x += (fx * mv.f + rx * mv.s) * dt * 2.4;
-  camera.position.z += (fz * mv.f + rz * mv.s) * dt * 2.4;
+  const dx = (fx * mv.f + rx * mv.s) * dt * WALK;
+  const dz = (fz * mv.f + rz * mv.s) * dt * WALK;
+  camera.position.x = THREE.MathUtils.clamp(camera.position.x + dx, -ROOM.w / 2 + 0.6, ROOM.w / 2 - 0.6);
+  camera.position.z = THREE.MathUtils.clamp(camera.position.z + dz, -ROOM.d / 2 + 0.55, ROOM.d / 2 - 0.25);
 
-  camera.position.x = THREE.MathUtils.clamp(camera.position.x, -ROOM.w / 2 + 0.45, ROOM.w / 2 - 0.45);
-  camera.position.z = THREE.MathUtils.clamp(camera.position.z, -ROOM.d / 2 + 0.6, ROOM.d / 2 - 0.05);
-  camera.position.y = CAM_Y;
+  // Efecto de caminata: balanceo + pasos
+  const moving = Math.abs(mv.f) > 0.01 || Math.abs(mv.s) > 0.01;
+  if (moving) {
+    bobPhase += dt * 9;
+    stepAccum += dt * 9;
+    if (stepAccum >= Math.PI) { stepAccum -= Math.PI; stepSound(); }
+  } else {
+    bobPhase *= 1 - Math.min(1, dt * 6);
+  }
+  camera.position.y = CAM_Y + Math.sin(bobPhase) * 0.035;
   camera.rotation.x = 0;
   camera.rotation.z = 0;
+}
+
+function stepSound() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const t0 = ctx.currentTime, dur = 0.08;
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 280;
+  const g = ctx.createGain(); g.gain.value = 0.055;
+  src.connect(lp); lp.connect(g); g.connect(ctx.destination);
+  src.start(t0);
 }
 
 // =====================================================================
 // SOPLAR LAS VELAS + APLAUSOS
 // =====================================================================
-function tryTapCake() {
-  if (candleBlown || !cakeGroup || !cakeGroup.visible) return;
-  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-  const hits = raycaster.intersectObjects(cakeGroup.children, true);
-  if (!hits.length) return;
-  if (camera.position.distanceTo(hits[0].point) < 5) triggerCandleRitual();
-}
-
 function triggerCandleRitual() {
   if (candleBlown) return;
   ritualTimers.forEach(clearTimeout);
@@ -1297,6 +1338,7 @@ function getAudioCtx() {
   if (!audioCtx) {
     try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
   }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
@@ -1365,7 +1407,7 @@ function render() {
 
   // Door animation
   if (doorLeft && doorRight) {
-    doorAngle += (doorTargetAngle - doorAngle) * 0.03;
+    doorAngle += (doorTargetAngle - doorAngle) * Math.min(1, dt * 3);
     doorLeft.rotation.y = doorAngle;
     doorRight.rotation.y = -doorAngle;
   }
