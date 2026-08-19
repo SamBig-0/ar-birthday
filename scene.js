@@ -26,6 +26,7 @@ const BALLOON_COLORS = [0xff4d6d, 0xc77dff, 0x48bfe3, 0xffd60a, 0xff6b6b, 0xff9e
 // =====================================================================
 let scene, camera, renderer, composer, clock;
 let cameraActive = false;
+let entryWalk = false, entryDist = 0, surpriseTriggered = false, surpriseFlash = false;
 let autoTurn = false, yawTarget = Math.PI;
 let bobPhase = 0, stepAccum = 0;
 let keys = new Set();
@@ -153,8 +154,8 @@ async function init() {
 
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.rotation.order = 'YXZ';
-  camera.position.set(0, CAM_Y, 1.6);
-  camera.rotation.y = Math.PI; // mira hacia la puerta cerrada
+  camera.position.set(0, CAM_Y, 3.6); // fuera, frente a la puerta cerrada
+  camera.rotation.y = Math.PI;         // mirando la puerta
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -243,29 +244,15 @@ async function startEntrySequence() {
   entryOverlay.style.opacity = '0';
   setTimeout(() => entryOverlay.classList.add('hidden'), 1000);
 
-  // Open the doors
-  doorTargetAngle = -Math.PI * 0.45; // ~80 degrees open
-
-  // Suena la música justo al abrir la puerta
+  // Música apenas se abre la puerta
   playYouTubeMusic();
 
-  // After door opens, start lights + giro hacia la fiesta
-  setTimeout(() => {
-    entryPhase = 'lights';
-    lightsFadingIn = true;
-    lightsProgress = 0;
-    yawTarget = 0;
-    autoTurn = true;
-    // Show UI
-    ui.classList.remove('hidden');
-    cameraActive = true;
-  }, 1200);
-
-  // After lights are up, explode confetti bomb
-  setTimeout(() => {
-    entryPhase = 'bomb';
-    explodeConfettiBomb();
-  }, 2800);
+  // La puerta se abre empujándola; luego la persona entra caminando
+  doorTargetAngle = -Math.PI * 0.5;
+  surpriseTriggered = false;
+  entryWalk = false;
+  entryDist = 0;
+  setTimeout(() => { entryWalk = true; }, 500);
 
   // Done
   setTimeout(() => {
@@ -388,7 +375,7 @@ function createLighting() {
 function updateLighting(dt) {
   if (!lightsFadingIn) return;
 
-  lightsProgress = Math.min(1, lightsProgress + dt * 0.5); // 2 seconds to full
+  lightsProgress = Math.min(1, lightsProgress + dt * (surpriseFlash ? 3.2 : 0.5));
 
   // Stagger the lights
   const p = lightsProgress;
@@ -427,9 +414,19 @@ function createRoom(woodTex, floorTex, wallTex) {
     new THREE.PlaneGeometry(w, d),
     new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.65, metalness: 0.05 })
   );
+  floor.position.set(0, 0, 0);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
+
+  // Porche oscuro frente a la puerta (para la entrada caminando)
+  const porch = new THREE.Mesh(
+    new THREE.PlaneGeometry(4, 2.6),
+    new THREE.MeshStandardMaterial({ color: 0x241d16, roughness: 0.9, metalness: 0 })
+  );
+  porch.rotation.x = -Math.PI / 2;
+  porch.position.set(0, -0.02, 3.55);
+  scene.add(porch);
 
   const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.85, metalness: 0 });
 
@@ -1290,6 +1287,39 @@ function stepSound() {
   src.start(t0);
 }
 
+// Entrada en primera persona: la persona abre y entra caminando
+function updateEntryWalk(dt) {
+  entryDist += dt * 1.7;
+  bobPhase += dt * 9;
+  stepAccum += dt * 9;
+  if (stepAccum >= Math.PI) { stepAccum -= Math.PI; stepSound(); }
+
+  camera.position.z = 3.6 - entryDist;
+  camera.position.y = CAM_Y + Math.sin(bobPhase) * 0.035;
+
+  // CRUZA EL UMBRAL → ¡SORPRESA!
+  if (!surpriseTriggered && camera.position.z <= 2.62) triggerSurprise();
+
+  // Llegó hasta el fondo de la entrada: gira hacia la fiesta
+  if (camera.position.z <= 1.1) {
+    entryWalk = false;
+    cameraActive = true;
+    autoTurn = true;
+    yawTarget = 0;
+    ui.classList.remove('hidden');
+  }
+}
+
+function triggerSurprise() {
+  surpriseTriggered = true;
+  entryPhase = 'lights';
+  lightsFadingIn = true;
+  lightsProgress = 0.15;
+  surpriseFlash = true;
+  setTimeout(() => { entryPhase = 'bomb'; explodeConfettiBomb(); }, 300);
+  setTimeout(() => { surpriseFlash = false; }, 700);
+}
+
 // =====================================================================
 // SOPLAR LAS VELAS + APLAUSOS
 // =====================================================================
@@ -1407,7 +1437,7 @@ function render() {
 
   // Door animation
   if (doorLeft && doorRight) {
-    doorAngle += (doorTargetAngle - doorAngle) * Math.min(1, dt * 3);
+    doorAngle += (doorTargetAngle - doorAngle) * Math.min(1, dt * 4);
     doorLeft.rotation.y = doorAngle;
     doorRight.rotation.y = -doorAngle;
   }
@@ -1415,8 +1445,9 @@ function render() {
   // Lighting fade-in
   updateLighting(dt);
 
-  // Cámara
-  if (cameraActive) updateCamera(dt);
+  // Caminata de entrada: entrar por la puerta
+  if (entryWalk) updateEntryWalk(dt);
+  else if (cameraActive) updateCamera(dt);
 
   // Balloons
   balloons.forEach(b => {
