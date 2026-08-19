@@ -1052,19 +1052,19 @@ function makeEnvelopeTexture(colorHex) {
 }
 
 function makePaperTexture(msg) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 640;
+  const c = document.createElement('canvas'); c.width = 768; c.height = 960;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#fffdf4'; ctx.fillRect(0, 0, 512, 640);
-  ctx.strokeStyle = '#e8a0c0'; ctx.lineWidth = 16; ctx.strokeRect(14, 14, 484, 612);
-  ctx.strokeStyle = '#c26ba0'; ctx.lineWidth = 4; ctx.strokeRect(36, 36, 440, 568);
+  ctx.fillStyle = '#fffdf4'; ctx.fillRect(0, 0, 768, 960);
+  ctx.strokeStyle = '#e8a0c0'; ctx.lineWidth = 22; ctx.strokeRect(20, 20, 728, 920);
+  ctx.strokeStyle = '#c26ba0'; ctx.lineWidth = 5; ctx.strokeRect(52, 52, 664, 856);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '52px serif'; ctx.fillText('💖', 256, 92);
-  ctx.font = 'bold 46px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
-  ctx.fillText(msg.title, 256, 168);
-  ctx.font = '38px Georgia, serif'; ctx.fillStyle = '#3a2a33';
-  wrapText(ctx, msg.text, 256, 292, 380, 54);
-  ctx.font = 'italic 34px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
-  ctx.fillText('— ' + msg.sign, 256, 556);
+  ctx.font = '76px serif'; ctx.fillText('💖', 384, 140);
+  ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
+  ctx.fillText(msg.title, 384, 252);
+  ctx.font = '54px Georgia, serif'; ctx.fillStyle = '#3a2a33';
+  wrapText(ctx, msg.text, 384, 436, 540, 80);
+  ctx.font = 'italic 50px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
+  ctx.fillText('— ' + msg.sign, 384, 830);
   return new THREE.CanvasTexture(c);
 }
 
@@ -1129,7 +1129,7 @@ function openCard(card) {
   cameraActive = false;
   const d = card.userData;
   const fx = -Math.sin(camera.rotation.y), fz = -Math.cos(camera.rotation.y);
-  d.target.set(camera.position.x + fx * 1.0, CAM_Y - 0.08, camera.position.z + fz * 1.0);
+  d.target.set(camera.position.x + fx * 0.7, CAM_Y - 0.06, camera.position.z + fz * 0.7);
   d.rotTarget = camera.rotation.y + Math.PI;
   d.flyT = 0;
   d.state = 'fly';
@@ -1150,14 +1150,16 @@ function closeCard() {
 
 function updateCards(dt) {
   const tNow = performance.now() / 1000;
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
   for (const card of cards) {
     const d = card.userData;
     if (d.state === 'fly') {
-      d.flyT = Math.min(1, d.flyT + dt / 0.9);
-      const t = d.flyT * d.flyT * (3 - 2 * d.flyT);
+      d.flyT = Math.min(1, d.flyT + dt / 1.1);
+      const t = easeOut(d.flyT);
       card.position.lerpVectors(d.standPos, d.target, t);
+      card.position.y += Math.sin(d.flyT * Math.PI) * 0.18; // arco suave
       card.rotation.y = d.standRot + (d.rotTarget - d.standRot) * t;
-      card.scale.setScalar(1 + t * 0.32);
+      card.scale.setScalar(1 + t * 0.5);
       if (d.flyT >= 1) {
         d.state = 'open';
         d.paper.visible = true;
@@ -1165,20 +1167,20 @@ function updateCards(dt) {
     } else if (d.state === 'open') {
       const fx = -Math.sin(camera.rotation.y), fz = -Math.cos(camera.rotation.y);
       d.target.set(
-        camera.position.x + fx * 1.0,
-        CAM_Y - 0.08 + Math.sin(tNow * 1.8) * 0.015,
-        camera.position.z + fz * 1.0
+        camera.position.x + fx * 0.7,
+        CAM_Y - 0.06 + Math.sin(tNow * 1.8) * 0.012,
+        camera.position.z + fz * 0.7
       );
-      card.position.lerp(d.target, Math.min(1, dt * 10));
+      card.position.lerp(d.target, Math.min(1, dt * 12));
       card.rotation.y = camera.rotation.y + Math.PI;
       d.front.material.opacity = Math.max(0.05, d.front.material.opacity - dt * 1.6);
       d.paper.position.y = Math.min(0.14, d.paper.position.y + dt * 0.25);
     } else if (d.state === 'return') {
-      d.flyT = Math.min(1, d.flyT + dt / 0.7);
-      const t = d.flyT * d.flyT * (3 - 2 * d.flyT);
+      d.flyT = Math.min(1, d.flyT + dt / 0.9);
+      const t = easeOut(d.flyT);
       card.position.lerpVectors(d.target, d.standPos, t);
       card.rotation.y = d.rotTarget + (d.standRot - d.rotTarget) * t;
-      card.scale.setScalar(1 + (1 - t) * 0.32);
+      card.scale.setScalar(1 + (1 - t) * 0.5);
       if (d.flyT >= 1) {
         d.state = 'idle';
         d.paper.visible = false;
