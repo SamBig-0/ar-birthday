@@ -70,6 +70,19 @@ const loadingText = document.getElementById('loadingText');
 const ui = document.getElementById('ui');
 
 // =====================================================================
+// ERRORES VISIBLES: si algo falla en runtime, se ve en pantalla
+// =====================================================================
+window.addEventListener('error', e => showFatalError(e.message || 'Error desconocido'));
+window.addEventListener('unhandledrejection', e => showFatalError(String(e.reason)));
+
+function showFatalError(msg) {
+  if (loadingText) loadingText.textContent = '⚠️ Error: ' + msg;
+  loading.classList.remove('hidden');
+  const chip = document.getElementById('hintChip');
+  if (chip) chip.textContent = '⚠️ Error: ' + msg;
+}
+
+// =====================================================================
 // PROCEDURAL TEXTURES
 // =====================================================================
 function makeWoodTexture(w = 512, h = 512) {
@@ -212,6 +225,11 @@ async function init() {
   setTimeout(() => {
     loading.classList.add('hidden');
   }, 400);
+
+  // RED DE SEGURIDAD: si en 10s nadie toca la puerta, la fiesta arranca sola
+  setTimeout(() => {
+    if (entryPhase === 'waiting') startEntrySequence();
+  }, 10000);
 
   setupControls();
   window.addEventListener('resize', onResize);
@@ -1248,6 +1266,15 @@ function setupControls() {
   });
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
+
+  // Navegadores muy viejos sin PointerEvent
+  if (!window.PointerEvent) {
+    canvas.addEventListener('click', e => handleTap(e.clientX, e.clientY));
+    canvas.addEventListener('touchend', e => {
+      const t = e.changedTouches[0];
+      if (t) handleTap(t.clientX, t.clientY);
+    });
+  }
 }
 
 function onPointerUp(e) {
