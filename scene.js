@@ -59,6 +59,14 @@ let lightsProgress = 0;
 let bombExploded = false;
 let bombGroup;
 let ytPlayer = null;
+let ytFxPlayer = null;
+
+// Cartas de amor al costado de la torta
+let cards = [];
+let cardEnvelopeMeshes = [];
+let readingCard = null;
+let savedCameraActive = false;
+let savedHint = '';
 
 // Lights references for fade-in
 let keyLight, fillLight, rimLight, cakeGlow, bounceLight, hemiLight;
@@ -205,6 +213,9 @@ async function init() {
   setProgress(70, 'Preparando el pastel');
   createCake();
 
+  setProgress(74, 'Escribiendo cartas de amor');
+  createCards();
+
   setProgress(78, 'Colgando luces de fiesta');
   createPartyLights();
 
@@ -259,7 +270,7 @@ async function startEntrySequence() {
 
   // TIMERS PRIMERO: la secuencia nunca puede morir por un fallo de audio
   setTimeout(() => { try { playDoorCreak(); } catch (err) { console.warn('creak', err); } }, 0);
-  setTimeout(() => { try { playShout(); } catch (err) { console.warn('shout', err); } }, 400);
+  setTimeout(() => { try { playFxShout(); } catch (err) { console.warn('shout', err); } }, 400);
   setTimeout(() => { entryWalk = true; }, 800);
   setTimeout(() => { try { playYouTubeMusic(); } catch (err) { console.warn('music', err); } }, 1600);
   setTimeout(() => { entryPhase = 'done'; }, 5000);
@@ -287,12 +298,38 @@ function initYouTubeMusic() {
           },
         });
       } catch (e) { playFallbackMusic(); }
+      try {
+        // FX: gritos y aplausos (video lHcgWdxR14A)
+        ytFxPlayer = new YT.Player('ytFxPlayer', {
+          events: {
+            onError: () => { ytFxPlayer = null; },
+            onStateChange: () => {},
+          },
+        });
+      } catch (e) { ytFxPlayer = null; }
     };
   } catch (e) { playFallbackMusic(); }
 }
 
-function playYouTubeMusic() {
-  let attempts = 0;
+// Gritos y aplausos: video de ovación, con respaldo sintetizado
+function fxVideoPlay() {
+  try {
+    if (ytFxPlayer && ytFxPlayer.playVideo) {
+      const st = ytFxPlayer.getPlayerState ? ytFxPlayer.getPlayerState() : -1;
+      if (st === 1) return true; // ya está sonando
+      ytFxPlayer.setVolume(90);
+      ytFxPlayer.seekTo(0, true);
+      ytFxPlayer.playVideo();
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+function playFxShout() { if (!fxVideoPlay()) playShout(); }
+function playFxApplause() { if (!fxVideoPlay()) playApplause(); }
+
+function playYouTubeMusic() {  let attempts = 0;
   const tryPlay = () => {
     attempts++;
     try {
@@ -979,6 +1016,180 @@ function createCandle(x, y, z, color) {
 }
 
 // =====================================================================
+// CARTAS DE AMOR (al costado de la torta)
+// =====================================================================
+const CARD_MESSAGES = [
+  { title: 'Para Yoselyn', text: 'Que este nuevo año te llene de amor, sueños cumplidos y mucha felicidad.', sign: 'Con cariño, tu familia' },
+  { title: 'Para Yoselyn', text: 'Cada vela que soplas enciende un deseo. Que hoy todos se hagan realidad.', sign: 'Te deseamos lo mejor' },
+  { title: 'Para Yoselyn', text: 'Gracias por ser luz en nuestras vidas. Hoy el mundo celebra que existes.', sign: 'Te queremos muchísimo' },
+  { title: 'Para Yoselyn', text: 'Que nunca te falten motivos para sonreír ni personas que te amen así de fácil.', sign: 'Eres increíble' },
+];
+const CARD_COLORS = ['#d94f70', '#8a5cf6', '#e0a52e', '#0fa3a3'];
+
+function wrapText(ctx, text, x, y, maxW, lh) {
+  const words = text.split(' ');
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y); line = w; y += lh; }
+    else line = test;
+  }
+  ctx.fillText(line, x, y);
+}
+
+function makeEnvelopeTexture(colorHex) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 320;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = colorHex; ctx.fillRect(0, 0, 256, 320);
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 8; ctx.strokeRect(8, 8, 240, 304);
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 4; ctx.strokeRect(16, 16, 224, 288);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '86px serif';
+  ctx.fillText('💌', 128, 120);
+  ctx.font = 'bold 30px Georgia, serif'; ctx.fillStyle = '#ffffff';
+  ctx.fillText('Para Yoselyn', 128, 228);
+  return new THREE.CanvasTexture(c);
+}
+
+function makePaperTexture(msg) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 640;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fffdf4'; ctx.fillRect(0, 0, 512, 640);
+  ctx.strokeStyle = '#e8a0c0'; ctx.lineWidth = 16; ctx.strokeRect(14, 14, 484, 612);
+  ctx.strokeStyle = '#c26ba0'; ctx.lineWidth = 4; ctx.strokeRect(36, 36, 440, 568);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '52px serif'; ctx.fillText('💖', 256, 92);
+  ctx.font = 'bold 46px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
+  ctx.fillText(msg.title, 256, 168);
+  ctx.font = '38px Georgia, serif'; ctx.fillStyle = '#3a2a33';
+  wrapText(ctx, msg.text, 256, 292, 380, 54);
+  ctx.font = 'italic 34px Georgia, serif'; ctx.fillStyle = '#7c2d5a';
+  ctx.fillText('— ' + msg.sign, 256, 556);
+  return new THREE.CanvasTexture(c);
+}
+
+function createCards() {
+  const cardsGroup = new THREE.Group();
+  const tableMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.45, metalness: 0.05 });
+  const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.03, 48), tableMat);
+  tableTop.position.set(0, 0.85, 0); tableTop.castShadow = true; tableTop.receiveShadow = true;
+  cardsGroup.add(tableTop);
+  const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.85, 12), tableMat);
+  tableLeg.position.set(0, 0.425, 0); tableLeg.castShadow = true;
+  cardsGroup.add(tableLeg);
+  cardsGroup.position.set(1.35, 0, -1.55);
+  scene.add(cardsGroup);
+
+  CARD_MESSAGES.forEach((msg, i) => {
+    const card = new THREE.Group();
+    const envMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, map: makeEnvelopeTexture(CARD_COLORS[i % CARD_COLORS.length]),
+      roughness: 0.35, metalness: 0.05, clearcoat: 0.4,
+    });
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.44, 0.008), envMat);
+    back.userData.cardObj = card; back.castShadow = true;
+    const front = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.44, 0.008),
+      envMat.clone()); front.material.transparent = true;
+    front.position.z = 0.014; front.castShadow = true;
+    front.userData.cardObj = card;
+    const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4),
+      new THREE.MeshBasicMaterial({ map: makePaperTexture(msg), side: THREE.DoubleSide }));
+    paper.position.z = 0.001; paper.visible = false;
+    card.add(back); card.add(front); card.add(paper);
+
+    const dx = [-0.19, -0.065, 0.065, 0.19][i];
+    const rotY = -Math.PI / 2 + [0.5, 0.17, -0.17, -0.5][i];
+    card.position.set(dx, 1.0825, 0);
+    card.rotation.y = rotY;
+    card.userData = {
+      standPos: card.position.clone(),
+      standRot: rotY,
+      front, paper,
+      state: 'idle', flyT: 0,
+      target: new THREE.Vector3(),
+      rotTarget: 0,
+    };
+    cardsGroup.add(card);
+    cards.push(card);
+    cardEnvelopeMeshes.push(back, front);
+  });
+}
+
+function setHintText(t) {
+  const chip = document.getElementById('hintChip');
+  if (chip) chip.textContent = t;
+}
+
+function openCard(card) {
+  if (readingCard) return;
+  readingCard = card;
+  savedCameraActive = cameraActive;
+  const chip = document.getElementById('hintChip');
+  savedHint = chip ? chip.textContent : '';
+  cameraActive = false;
+  const d = card.userData;
+  const fx = -Math.sin(camera.rotation.y), fz = -Math.cos(camera.rotation.y);
+  d.target.set(camera.position.x + fx * 1.0, CAM_Y - 0.08, camera.position.z + fz * 1.0);
+  d.rotTarget = camera.rotation.y + Math.PI;
+  d.flyT = 0;
+  d.state = 'fly';
+  d.front.material.opacity = 1;
+  d.paper.position.y = 0;
+  setHintText('👆 Toca para cerrar la carta');
+}
+
+function closeCard() {
+  if (!readingCard) return;
+  const card = readingCard;
+  readingCard = null;
+  cameraActive = savedCameraActive;
+  card.userData.flyT = 0;
+  card.userData.state = 'return';
+  setHintText(savedHint || '🎂 Toca el pastel y pide un deseo');
+}
+
+function updateCards(dt) {
+  const tNow = performance.now() / 1000;
+  for (const card of cards) {
+    const d = card.userData;
+    if (d.state === 'fly') {
+      d.flyT = Math.min(1, d.flyT + dt / 0.9);
+      const t = d.flyT * d.flyT * (3 - 2 * d.flyT);
+      card.position.lerpVectors(d.standPos, d.target, t);
+      card.rotation.y = d.standRot + (d.rotTarget - d.standRot) * t;
+      card.scale.setScalar(1 + t * 0.32);
+      if (d.flyT >= 1) {
+        d.state = 'open';
+        d.paper.visible = true;
+      }
+    } else if (d.state === 'open') {
+      const fx = -Math.sin(camera.rotation.y), fz = -Math.cos(camera.rotation.y);
+      d.target.set(
+        camera.position.x + fx * 1.0,
+        CAM_Y - 0.08 + Math.sin(tNow * 1.8) * 0.015,
+        camera.position.z + fz * 1.0
+      );
+      card.position.lerp(d.target, Math.min(1, dt * 10));
+      card.rotation.y = camera.rotation.y + Math.PI;
+      d.front.material.opacity = Math.max(0.05, d.front.material.opacity - dt * 1.6);
+      d.paper.position.y = Math.min(0.14, d.paper.position.y + dt * 0.25);
+    } else if (d.state === 'return') {
+      d.flyT = Math.min(1, d.flyT + dt / 0.7);
+      const t = d.flyT * d.flyT * (3 - 2 * d.flyT);
+      card.position.lerpVectors(d.target, d.standPos, t);
+      card.rotation.y = d.rotTarget + (d.standRot - d.rotTarget) * t;
+      card.scale.setScalar(1 + (1 - t) * 0.32);
+      if (d.flyT >= 1) {
+        d.state = 'idle';
+        d.paper.visible = false;
+        d.paper.position.y = 0;
+        d.front.material.opacity = 1;
+      }
+    }
+  }
+}
+
+// =====================================================================
 // PARTY LIGHTS
 // =====================================================================
 function createPartyLights() {
@@ -1242,7 +1453,7 @@ function setupControls() {
   window.addEventListener('blur', () => keys.clear());
 
   canvas.addEventListener('pointerdown', e => {
-    if (!cameraActive && entryPhase !== 'waiting') return;
+    if (!cameraActive && entryPhase !== 'waiting' && !readingCard) return;
     pointerId = e.pointerId;
     lastPX = e.clientX; lastPY = e.clientY;
     dragDist = 0; downT = performance.now();
@@ -1285,11 +1496,23 @@ function handleTap(x, y) {
   );
   raycaster.setFromCamera(ndc, camera);
 
+  // Mientras se lee una carta, cualquier toque la cierra
+  if (readingCard) { closeCard(); return; }
+
   // ANTES de entrar: solo la puerta responde (paneles + marco)
   if (entryPhase === 'waiting') {
     const doorHits = raycaster.intersectObjects([doorLeft, doorRight, ...doorHitMeshes], true);
     if (doorHits.length) startEntrySequence();
     return;
+  }
+
+  // Tras la sorpresa: se pueden tomar las cartas de amor
+  if (surpriseTriggered) {
+    const cardHits = raycaster.intersectObjects(cardEnvelopeMeshes, false);
+    if (cardHits.length && cardHits[0].distance < 5) {
+      openCard(cardHits[0].object.userData.cardObj);
+      return;
+    }
   }
 
   tryTapCake(ndc);
@@ -1301,7 +1524,7 @@ function tryTapCake(ndc) {
   const hits = raycaster.intersectObjects(cakeGroup.children, true);
   if (!hits.length) return;
   if (camera.position.distanceTo(hits[0].point) < 5) {
-    if (candleBlown) { playApplause(); return; }
+    if (candleBlown) { playFxApplause(); return; }
     if (blowSession) doBlow();
     else startBlowSession();
   }
@@ -1476,7 +1699,7 @@ function doBlow() {
     candleGlows.forEach(g => { g.visible = false; });
     spawnSmoke();
     launchConfetti(90, cakeGroup.position.x, 1.45, cakeGroup.position.z);
-    ritualTimers.push(setTimeout(playApplause, 350));
+    ritualTimers.push(setTimeout(playFxApplause, 350));
     ritualTimers.push(setTimeout(() => wishEl.classList.add('hidden'), 4200));
   }, 600));
 }
@@ -1656,6 +1879,9 @@ function render() {
     // La persona camina con teclas y cruza la puerta → ¡SORPRESA!
     if (!surpriseTriggered && camera.position.z <= 2.0) triggerSurprise();
   }
+
+  // Cartas de amor (volar a la cámara, lectura, regreso)
+  updateCards(dt);
 
   // Balloons
   balloons.forEach(b => {

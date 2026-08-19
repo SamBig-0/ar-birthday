@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>✨</title>
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <!-- Loading -->
@@ -24,6 +24,16 @@
   <div id="ytContainer" class="yt-hidden">
     <iframe id="ytPlayer"
       src="https://www.youtube.com/embed/FE_KnGLsX5c?autoplay=0&enablejsapi=1&controls=0&disablekb=1&modestbranding=1&rel=0&loop=1&playlist=FE_KnGLsX5c&iv_load_policy=3"
+      allow="autoplay"
+      allowfullscreen
+      playsinline
+    ></iframe>
+  </div>
+
+  <!-- YouTube FX: gritos y aplausos (hidden iframe) -->
+  <div id="fxContainer" class="yt-hidden">
+    <iframe id="ytFxPlayer"
+      src="https://www.youtube.com/embed/lHcgWdxR14A?autoplay=0&enablejsapi=1&controls=0&disablekb=1&modestbranding=1&rel=0&iv_load_policy=3"
       allow="autoplay"
       allowfullscreen
       playsinline
@@ -58,6 +68,6 @@
     }
   }
   </script>
-  <script type="module" src="scene.js?v=9"></script>
+  <script type="module" src="scene.js?v=10"></script>
 </body>
 </html>
