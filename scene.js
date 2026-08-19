@@ -152,9 +152,9 @@ async function init() {
   scene.background = new THREE.Color(0x020205); // Almost black
   scene.fog = new THREE.FogExp2(0x020205, 0.08);
 
-  camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.rotation.order = 'YXZ';
-  camera.position.set(0, CAM_Y, 3.6); // fuera, frente a la puerta cerrada
+  camera.position.set(0, CAM_Y, 4.6); // fuera, frente a la puerta cerrada
   camera.rotation.y = 0;              // mirando a la puerta (está delante, z=2.75)
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -163,7 +163,7 @@ async function init() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.15; // START DARK
+  renderer.toneMappingExposure = 0.32; // START: noche pero visible
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   cameraActive = false; // Activa tras la entrada
@@ -234,11 +234,12 @@ async function startEntrySequence() {
 
   document.getElementById('hintChip').textContent = '🚪 ¡Entra! 🎉';
 
-  // La puerta se abre (efecto de empujar)
+  // La puerta se abre (efecto de empujar) con crujido
   doorTargetAngle = -Math.PI * 0.5;
   surpriseTriggered = false;
   entryWalk = false;
   entryDist = 0;
+  playDoorCreak();
 
   // GRITOS: ¡SORPRESAAA!
   setTimeout(playShout, 400);
@@ -368,8 +369,8 @@ function createLighting() {
   scene.add(crackLight.target);
 
   // Luz cálida del pasillo: la puerta se ve de frente
-  const porchLight = new THREE.PointLight(0xffe8c8, 1.2, 7, 2);
-  porchLight.position.set(0, 2.1, 3.4);
+  const porchLight = new THREE.PointLight(0xffe8c8, 2.2, 8, 2);
+  porchLight.position.set(0, 2.1, 3.6);
   scene.add(porchLight);
 }
 
@@ -389,8 +390,8 @@ function updateLighting(dt) {
   cakeGlow.intensity = Math.max(0, (p - 0.3) * 1.43) * 0.3;
   bounceLight.intensity = Math.max(0, (p - 0.15) * 1.18) * 0.2;
 
-  // Tone mapping exposure goes from dark to normal
-  renderer.toneMappingExposure = 0.15 + ease * 0.85;
+  // Tone mapping exposure va de noche a pleno
+  renderer.toneMappingExposure = 0.32 + ease * 0.68;
 
   // Fog fades
   scene.fog.density = 0.08 * (1 - ease) + 0.04 * ease;
@@ -429,7 +430,7 @@ function createRoom(woodTex, floorTex, wallTex) {
   porch.position.set(0, -0.02, 3.55);
   scene.add(porch);
 
-  const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.85, metalness: 0 });
+  const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
 
   const back = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat.clone());
   back.material.map = wallTex.clone(); back.material.map.repeat.set(2, 1);
@@ -452,6 +453,23 @@ function createRoom(woodTex, floorTex, wallTex) {
   );
   ceil.rotation.x = Math.PI / 2; ceil.position.y = h; ceil.receiveShadow = true;
   scene.add(ceil);
+
+  // Pared FRONTAL con la abertura de la puerta (visible desde afuera)
+  const dh = h * 0.82;      // altura de la puerta
+  const doorHalf = 0.72;    // mitad de la abertura
+  const frontZ = d / 2 - 0.005;
+  [{ w: w / 2 - doorHalf, x: -(w / 2 + doorHalf) / 2 },
+   { w: w / 2 - doorHalf, x: (w / 2 + doorHalf) / 2 }
+  ].forEach(p => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(p.w, h, 0.05), wallMat.clone());
+    m.position.set(p.x, h / 2, frontZ);
+    m.receiveShadow = true;
+    scene.add(m);
+  });
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorHalf * 2 + 0.1, h - dh, 0.05), wallMat.clone());
+  lintel.position.set(0, h - (h - dh) / 2, frontZ);
+  lintel.receiveShadow = true;
+  scene.add(lintel);
 
   // Baseboards
   const bbMat = new THREE.MeshStandardMaterial({ map: woodTex.clone(), color: 0x3a2510, roughness: 0.5 });
@@ -1190,7 +1208,7 @@ function setupControls() {
   window.addEventListener('blur', () => keys.clear());
 
   canvas.addEventListener('pointerdown', e => {
-    if (!cameraActive) return;
+    if (!cameraActive && entryPhase !== 'waiting') return;
     pointerId = e.pointerId;
     lastPX = e.clientX; lastPY = e.clientY;
     dragDist = 0; downT = performance.now();
@@ -1201,6 +1219,7 @@ function setupControls() {
     const dx = e.clientX - lastPX, dy = e.clientY - lastPY;
     lastPX = e.clientX; lastPY = e.clientY;
     dragDist += Math.abs(dx) + Math.abs(dy);
+    if (!cameraActive) return;
     if (!autoTurn) camera.rotation.y -= dx * 0.005;   // girar el cuarto (yaw)
     touchF -= dy * 0.02;                               // arrastrar en vertical = caminar
   });
@@ -1310,7 +1329,7 @@ function updateEntryWalk(dt) {
   stepAccum += dt * 9;
   if (stepAccum >= Math.PI) { stepAccum -= Math.PI; stepSound(); }
 
-  camera.position.z = 3.6 - entryDist;
+  camera.position.z = 4.6 - entryDist;
   camera.position.y = CAM_Y + Math.sin(bobPhase) * 0.035;
   camera.rotation.y = 0; // entra mirando hacia el interior del cuarto
 
@@ -1489,6 +1508,26 @@ function playApplause() {
     for (let i = 0; i < n; i++) clap(t + Math.random() * 0.09, (0.5 + Math.random() * 0.5) * fade);
     t += 0.22 + Math.random() * 0.28;
   }
+}
+
+// Crujido de la puerta al abrirse
+function playDoorCreak() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const t0 = ctx.currentTime, dur = 0.7;
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) {
+    const env = Math.sin(Math.PI * i / d.length);
+    d[i] = (Math.random() * 2 - 1) * env;
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q = 12;
+  bp.frequency.setValueAtTime(750, t0);
+  bp.frequency.exponentialRampToValueAtTime(320, t0 + dur);
+  const g = ctx.createGain(); g.gain.value = 0.28;
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(t0);
 }
 
 // Grito de fiesta: ¡SORPRESAAA! (síntesis vocal con formantes)
