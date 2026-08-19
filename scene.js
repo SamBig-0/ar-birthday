@@ -1780,8 +1780,8 @@ function updateSoothingBtn() {
 function toggleSoothing() {
   if (!soothingAudio) {
     soothingAudio = new Audio(MUSIC_URL);
-    soothingAudio.loop = true;
     soothingAudio.volume = 1;
+    soothingAudio.addEventListener('ended', () => { duckMusic(false); updateSoothingBtn(); });
   }
   if (!soothingAudio.paused) { stopSoothing(); return; }
   duckMusic(true);
