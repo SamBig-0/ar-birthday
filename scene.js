@@ -46,6 +46,7 @@ let musicPlaying = false, audioCtx, entered = false;
 
 // Door
 let doorLeft, doorRight;
+let doorFrameMeshes = [];
 let doorOpen = false;
 let doorAngle = 0;
 let doorTargetAngle = 0;
@@ -210,9 +211,6 @@ async function init() {
 
   setTimeout(() => {
     loading.classList.add('hidden');
-    document.getElementById('hintChip').classList.add('hidden');
-    // El show arranca solo: un momento de suspenso y la puerta se abre
-    setTimeout(startEntrySequence, 1200);
   }, 400);
 
   setupControls();
@@ -250,12 +248,6 @@ async function startEntrySequence() {
 
   // Música principal justo después del grito
   setTimeout(playYouTubeMusic, 1600);
-
-  setTimeout(() => {
-    const chip = document.getElementById('hintChip');
-    chip.textContent = '🎂 Toca el pastel y pide un deseo';
-    chip.classList.remove('hidden');
-  }, 4200);
 
   setTimeout(() => {
     entryPhase = 'done';
@@ -544,6 +536,7 @@ function createDoor() {
   fR.position.set(doorW + 0.05, doorY, fz); fR.castShadow = true; doorGroup.add(fR);
   const fT = new THREE.Mesh(new THREE.BoxGeometry(doorW * 2 + 0.2, 0.1, 0.14), frameMat);
   fT.position.set(0, doorH + 0.1, fz); fT.castShadow = true; doorGroup.add(fT);
+  doorFrameMeshes.push(fL, fR, fT);
 
   // Inner frame lip (thinner, protruding)
   const lipMat = new THREE.MeshStandardMaterial({ color: 0x4a2a10, roughness: 0.4, metalness: 0.1 });
@@ -1263,9 +1256,9 @@ function handleTap(x, y) {
   );
   raycaster.setFromCamera(ndc, camera);
 
-  // ANTES de entrar: solo la puerta responde
+  // ANTES de entrar: solo la puerta responde (paneles + marco)
   if (entryPhase === 'waiting') {
-    const doorHits = raycaster.intersectObjects([doorLeft, doorRight], true);
+    const doorHits = raycaster.intersectObjects([doorLeft, doorRight, ...doorFrameMeshes], true);
     if (doorHits.length) startEntrySequence();
     return;
   }
@@ -1352,16 +1345,15 @@ function updateEntryWalk(dt) {
 
   camera.position.z = 4.6 - entryDist;
   camera.position.y = CAM_Y + Math.sin(bobPhase) * 0.035;
-  camera.rotation.y = 0; // entra mirando hacia el interior del cuarto
+  camera.rotation.y = 0; // mira hacia la puerta y el cuarto
 
-  // CRUZA EL UMBRAL → ¡SORPRESA! (de frente)
-  if (!surpriseTriggered && camera.position.z <= 2.62) triggerSurprise();
-
-  // Camina solo hasta quedar frente a la torta
-  if (camera.position.z <= -0.3) {
+  // Camina solo hasta el umbral de la puerta y entrega el control
+  if (camera.position.z <= 2.85) {
     entryWalk = false;
     cameraActive = true;
     ui.classList.remove('hidden');
+    const chip = document.getElementById('hintChip');
+    chip.textContent = '🚶 Avanza hasta la torta con W/A/S/D o arrastra';
   }
 }
 
@@ -1375,6 +1367,10 @@ function triggerSurprise() {
   partyLights.forEach(l => { l.light.visible = true; l.glow.visible = true; });
   setTimeout(() => { entryPhase = 'bomb'; explodeConfettiBomb(); }, 200);
   setTimeout(() => { surpriseFlash = false; }, 800);
+  setTimeout(() => {
+    const chip = document.getElementById('hintChip');
+    chip.textContent = '🎂 Toca el pastel y pide un deseo';
+  }, 4200);
 }
 
 // =====================================================================
@@ -1626,7 +1622,11 @@ function render() {
 
   // Caminata de entrada: entrar por la puerta
   if (entryWalk) updateEntryWalk(dt);
-  else if (cameraActive) updateCamera(dt);
+  else if (cameraActive) {
+    updateCamera(dt);
+    // La persona cruza el umbral por su cuenta → ¡SORPRESA!
+    if (!surpriseTriggered && camera.position.z <= 2.62) triggerSurprise();
+  }
 
   // Balloons
   balloons.forEach(b => {
